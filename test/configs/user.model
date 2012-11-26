@@ -1,0 +1,18 @@
+%% -*- erlang -*-
+[{fields,
+  [
+   {id,non_neg_integer,[index]},
+   {login,non_neg_integer,[required]},
+   {password,binary,[
+		     required,
+		     {mode,w}
+		    ]},
+   {cluster_token,non_neg_integer,[required,{mode,rsw}]},
+   {email,email,[required]},
+  ]},
+ {options,
+  [{table,"user"},
+   dtw
+  ]
+ }
+].
