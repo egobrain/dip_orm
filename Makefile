@@ -1,11 +1,4 @@
-
-PREFIX:=../
-DEST:=$(PREFIX)$(PROJECT)
-
-SRC_TMP=.tmp
-
 REBAR= `which rebar || ./rebar`
-ModelCompiler:=./compiler/compiler.escript
 
 all:
 	@$(REBAR) compile skip_deps=true
@@ -29,12 +22,7 @@ _xref:
 
 test: ct
 ct:
-	- @mv src $(SRC_TMP)
-	- @mkdir src
-	- @find $(SRC_TMP) -name "*erl" -exec ln -s "../{}" src/ \;	
-	- @$(REBAR) skip_deps=true ct
-	- @rm -Rf src	
-	- @mv $(SRC_TMP) src
+	@$(REBAR) skip_deps=true ct
 
 clean:
 	@$(REBAR) clean skip_deps=true
@@ -47,21 +35,3 @@ build_plt:
 
 dialyzer:
 	@$(REBAR) analyze
-
-app:
-	@$(REBAR) create template=mochiwebapp dest=$(DEST) appid=$(PROJECT)
-
-devrel: dip1 dip2
-
-dip1 dip2 dip3:
-	mkdir -p dev
-	(cd rel && rebar generate target_dir=../dev/$@ overlay_vars=vars/$@_vars.config force=1)
-
-
-models: user theme movie channel access_token language meta
-
-user theme movie channel language meta: 
-	@$(ModelCompiler) src/system/models/db/db_$@.erl
-
-access_token: 
-	@$(ModelCompiler) src/core/models/$@.erl
