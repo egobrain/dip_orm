@@ -1,0 +1,108 @@
+%% -*- erlang -*-
+
+% @doc Generate object from proplist with type checks. No require checks. Work with SYSTEM access privilegis.
+-spec from_proplist([{atom(),field()}]) -> {ok,{{model_name|capfirst}} :: {{model_name}}()} | {error,[params_error()]}.
+from_proplist(Proplist) ->
+    from_proplist(Proplist,#{{model_name}}{}).
+
+% @doc Fill object from proplist with type checks. No require checks. Work with SYSTEM access privilegis.
+-spec from_proplist([{atom(),field()}],{{model_name|capfirst}} :: {{model_name}}()) -> {ok,{{model_name|capfirst}} :: {{model_name}}()} | {error,[params_error()]}.
+from_proplist(Proplist,{{model_name|capfirst}}) ->
+    dip_utils:error_writer_fold(fun from_proplist_/2,{{model_name|capfirst}},Proplist).
+
+%| {% for f in setter_fields %}
+      {% if f.system_can_write %}
+from_proplist_({ {{f.name}}, {{f.name|capfirst}} },{{model_name|capfirst}}) ->
+    case dip_utils:valid_type({{f.type}},{{f.name|capfirst}}) of
+	{ok,Val} -> set_{{f.name}}(Val,{{model_name|capfirst}}),
+	{error,Description} -> {error,{ {{f.name}}, Description } }
+    end;
+%|    {% else %}
+from_proplist_([{ {{f.name}},_}|Rest],_{{model_name|capfirst}}) -> {error, { {{f.name}},forbidden} };
+%|    {% endif %}
+%| {% endfor %}
+from_proplist_([{Name,_}|Rest],_{{model_name|capfirst}}) -> {error, {Name,unknown} }.
+
+% @doc Generate object from proplist which keys are binary with type checks. No require checks. Work with USER access privilegis.
+-spec from_bin_proplist([{binary(),field()}]) -> {ok,{{model_name|capfirst}} :: {{model_name}}()} | {error,[params_error()]}.
+from_bin_proplist(Proplist) ->
+    from_bin_proplist(Proplist,#{{model_name}}{}).
+
+% @doc Fill object from proplist which keys are binary with type checks. No require checks. Work with USER access privilegis.
+-spec from_bin_proplist([{binary(),field()}],{{model_name|capfirst}} :: {{model_name}}()) -> {ok,{{model_name|capfirst}} :: {{model_name}}()} | {error,[params_error()]}.
+from_bin_proplist(Proplist,{{model_name|capfirst}}) ->
+    dip_utils:error_writer_fold(fun from_bin_proplist_/2,{{model_name|capfirst}},Proplist).
+
+%| {% for f in setter_fields %}
+%|    {% if f.user_can_write %}
+from_bin_proplist({ <<"{{f.name}}">>, {{f.name|capfirst}} },{{model_name|capfirst}}) ->
+    Res = do([error_m ||
+		 Val <- dip_utils:valid_type({{f.type}},{{f.name|capfirst}}),
+		 Validator <- return(validator({{f.name}})),
+		 Validator(Val),
+		 return(Val)
+		    ]),
+    case Res of
+	{ok,Val} ->
+	    set_{{f.name}}(Val,{{model_name|capfirst}});
+	{error,Description} -> {error,{ {{f.name}}, Description } }
+    end;
+%|    {% else %}
+from_bin_proplist([{ <<"{{f.name}}">>,_}|Rest],{{model_name|capfirst}}) -> {error, { {{f.name}},forbidden} };
+%|    {% endif %}
+%| {% endfor %}
+from_bin_proplist({ Name,_},{{model_name|capfirst}}) -> {error, {Name,unknown} }.
+
+% @doc Convert object to proplist.
+-spec to_proplist({{model_name|capfirst}}) -> [{Field,FieldType}] when
+    {{model_name|capfirst}}::{{model_name}}(),
+    Field :: field(),
+    FieldType :: field_type().
+to_proplist({{model_name|capfirst}}) ->
+    [
+    
+%| {% for f in user_can_read_fields %}
+%|      {% if not forloop.first %}
+     %\
+     ,
+%|      {% endif %}
+     { {{f.name}} , {{f.name}}({{model_name|capfirst}}) }
+%| {% endfor %}
+    ].
+
+
+-spec validator(Field) ->
+    fun((Value) -> ok | {error,Reason}) when
+        Field :: field(),
+        Value :: any(),
+	Reason :: any().
+%| {% for f in fields %}
+validator({{f.name}}) ->
+    dip_utils:get_validator([
+			     %\ {% for v in f.validators %}
+			     {{v.module}}:{{v.function}}(_
+							 %| {% for a in v.arguments %}
+							 %\
+							 ,{{ a }}
+							 %\ {% endfor %}
+							),
+			     %\    {% if not forloop.last %}
+			     ,
+			     %\    {% endif %}
+			     %\ {% endfor %}
+			    ],{{f.is_required}}).     
+%| {% endfor %}
+validator(_) ->
+    {error,unknown_validator}.
+
+valid({{model_name|capfirst}}) ->
+    Data = [
+	    %| {% for f in fields %}
+	    { {{ f.name }}, validator({{f.name}}), {{f.name}}({{model_name|capfirst}})}
+	    %\    {% if not forloop.last %}
+	    ,
+	    %|    {% endif %}
+	    %| {% endfor %}
+	   ],
+    dip_utils:valid(Data).
+     

@@ -11,88 +11,76 @@
 -compile({parse_transform,do}).
 
 -export([normalize/1]).
+-export([
+	 get_global_config/1,
+	 get_config/2,
+	 get_db_model_config/1,
+	 fill_links/1
+	]).
 -include("log.hrl").
 
 %% ===================================================================
 %%% Types
 %% ===================================================================
 
--record(config,{
-	  options :: options(),    % Global options for model
-	  fields :: [field()],     % fields with options
-	  filename :: field_name(),  % Filename where model stores
-	  links :: [db_link()]     % links on other models
-	 }).
--record(options,{
-	  table :: binary(),        % table_name
-	  safe_delete :: boolean(), % Option tells to
-	  deleted_flag_name :: binary(), % DB field name where delete flag stores
-	  dtw :: boolean()  % Create internal Macroses
-	 }).
--record(field,{
-	  name :: field_name(), % Field name which will be used to access property
-
-	  is_index :: boolean(),
-	  is_required :: boolean(),
-
-	  has_record :: boolean(), % Set to true if field value stores in state record
-	  record_options :: record_options(), % Editional record options
-
-	  is_in_database :: boolean(), % Set to true if field value stores in state DB
-	  db_options :: db_options() % Editional DB record options
-	 }).
--record(db_options,{
-	  type :: string | integer | datetime,
-	  alias :: binary() % Name of field in DB
-	 }).
--record(record_options,{
-	  type :: field_type(), % Record type. Usefull for dializer
-	  description :: any(), % descriptions which stores near record
-	  default_value :: any(), % Default value 
-	  mode :: r | w | rw | sr | sw | srsw | rsw | srw, % Access mode
-	  getter :: true | false | custom, % create getter or use custom
-	  setter :: true | false | custom, % create setter or use custom
-	  init :: [field_name()] % Fields which are needed for to init
-	 }).	  
-
--record(one_to_one,{
-	  local_id :: field_name(),
-	  model :: binary(),
-	  remote_id :: field_name()
-	 }).
-
--record(one_to_many,{
-	  local_id :: field_name(),
-	  model :: model_name(),
-	  remote_id   :: field_name()
-	 }).
-
--record(many_to_many,{
-	  local_id :: field_name(),
-	  link_model :: model_name(),
-	  remote_model :: model_name()
-	 }).
-
--type field_type() :: {atom(),atom()} | integer | non_neg_integer | binary.
--type field_name() :: binary().
--type model_name() :: binary().
-
--type record_options() :: #record_options{}.
--type db_options() :: #db_options{}.
--type options() :: #options{}.
--type config() :: #config{}.
--type field() :: #field{}.
--type db_link() :: #one_to_one{} | #one_to_many{} | #many_to_many{}.
+-include("types.hrl").
 
 -export_type([
 	      config/0,
 	      options/0,
-	      field/0
+	      field/0,
+	      record_options/0,
+	      db_options/0,
+	      db_link/0,
+	      global_config/0
 	     ]).
 
 %% ===================================================================
 %%% API
 %% ===================================================================
+
+get_global_config(Config) ->
+    do([error_m ||
+	   Opts <- default(option,dip_orm_options,Config,[]),
+	   validators(dip_orm_options,Opts,[fun is_list/1]),
+	   ConfigsFolder_ <- default(option,configs_folder,Opts,<<"priv/models">>),
+	   ConfigsFolder <- not_null_binary(ConfigsFolder_),
+
+	   OutputSrcFolder_ <- default(option,output_src_folder,Opts,<<"src/">>),
+	   OutputSrcFolder <- not_null_binary(OutputSrcFolder_),
+
+	   Suffix_ <- default(option,config_suffix,Opts,<<".cfg">>),
+	   Suffix <- not_null_binary(Suffix_),
+	   return(
+	     #global_config{configs_folder=ConfigsFolder,
+			    output_src_folder=OutputSrcFolder,
+			    config_suffix=Suffix
+			   })
+	      ]).
+
+get_db_model_config(Config) ->
+    do([error_m ||
+	   Opts <- default(option,db_models,Config,[]),
+	   validators(db_models,Opts,[fun is_list/1]),
+	   return(Opts)]).
+    
+
+get_config({Name,Options},
+	   #global_config{
+	     configs_folder=ConfigsFolder,
+	     config_suffix=Suffix
+	    }) ->
+    do([error_m ||
+	   validators(options,Options,[fun is_list/1]),
+	   ModelName <- not_null_atom(Name),
+	   ConfigName <- default(option,config,Options,atom_to_binary_with_suffix(ModelName,Suffix)),
+	   ConfigName2 <- not_null_binary(ConfigName),
+	   ConfigFile <- return(filename:join(ConfigsFolder,ConfigName2)),
+	   ModelConfig <- dip_orm_file:read_config(ConfigFile),
+	   normalize_({ConfigFile,ModelName,ModelConfig})
+	      ]);
+get_config(_,_) ->
+    {error,{wrong_format,"Wrong models config description"}}.
 
 -spec normalize(FileConfigs) -> {ok,Configs} | {error,Reason} when
     FileConfigs :: {Filename :: binary(), Config :: any()},
@@ -102,27 +90,155 @@ normalize(Configs) ->
     do([error_m ||
 	       dip_utils:success_map(fun normalize_/1,Configs)
 	      ]).
+
+fill_links(ModelConfigs) ->
+    Dict = dict:new(),
+    FoldFun = fun(#config{name=Name,fields=Fields,links=Links},Acc) ->
+		      dict:store(Name,{Fields,Links},Acc)
+	      end,
+    Dict2 = lists:foldl(FoldFun,Dict,ModelConfigs),
+    do([error_m ||
+	   Dict3 <- fill_one_to_many_links(ModelConfigs,Dict2),
+	   Dict4 <- fill_many_to_many_links(ModelConfigs,Dict3),
+	   MapFun <- return(fun(#config{name=Name}=Config) ->
+	   			    {_Fields,Links} = dict:fetch(Name,Dict4),
+	   			    Config#config{links = Links}
+	   		    end),
+	   return([MapFun(Config) || Config <- ModelConfigs])
+		]).
+
+fill_one_to_many_links(ModelConfigs,Dict) ->
+    FoldFun = fun(#config{name=LocalModelName,fields=LocalFields,links=LocalLinks},Acc) ->
+		      SubFoldFun = fun(#many_to_one{local_id=LocalID,
+						    model=RemoteModelName,
+						    remote_id=RemoteID},
+				       Acc2) ->
+					   do([error_m ||
+						  {RemoteFields,RemoteLinks} <- get_model_from_dict(RemoteModelName,Acc2),
+						  LocalField <- find_field(LocalID,LocalFields),
+						  RemoteField <- find_field(RemoteID,RemoteFields),
+						  check_fields(LocalField,RemoteField),
+						  Link <- return(#one_to_many{
+						    local_id=RemoteID,
+						    model=LocalModelName,
+						    remote_id=LocalID
+						   }),
+						  return(dict:store(RemoteModelName,{RemoteFields,[Link|RemoteLinks]},Acc2))
+						     ])
+				   end,
+		      dip_utils:success_fold(SubFoldFun,Acc,LocalLinks)
+	      end,
+    dip_utils:success_fold(FoldFun,Dict,ModelConfigs).
+
+fill_many_to_many_links(ModelConfigs,Dict) ->
+    FoldFun = fun(#config{fields=LinkFields} = Config,Acc) ->
+		      ManyToManyLinks = get_many_to_many_links(Config),
+		      SubFoldFun = fun({RemoteModelName_1,#many_to_many{local_id = RemoteID_1,
+									link_local_id = LinkID_1,
+									link_remote_id = LinkID_2,
+									remote_model = RemoteModelName_2,
+									remote_id = RemoteID_2} = Link_1},Acc2) ->
+					   do([error_m ||
+						  {RemoteFields_1,RemoteLinks_1} <- get_model_from_dict(RemoteModelName_1,Acc2),
+						  {RemoteFields_2,RemoteLinks_2} <- get_model_from_dict(RemoteModelName_2,Acc2),
+						  RemoteField_1 <- find_field(RemoteID_1,RemoteFields_1),
+						  LinkField_1 <- find_field(LinkID_1,LinkFields),
+						  check_fields(RemoteField_1,LinkField_1),
+						  
+						  RemoteField_2 <- find_field(RemoteID_2,RemoteFields_2),
+						  LinkField_2 <- find_field(LinkID_2,LinkFields),
+						  check_fields(RemoteField_2,LinkField_2),
+						  Link_2 <- return(inverse_many_to_many(RemoteModelName_1,Link_1)),
+						  Acc3 <- return(dict:store(RemoteModelName_1,{RemoteFields_1,[Link_1|RemoteLinks_1]},Acc2)),
+						  return(dict:store(RemoteModelName_2,{RemoteFields_2,[Link_2|RemoteLinks_2]},Acc3))
+						     ])
+				   end,
+		      dip_utils:success_fold(SubFoldFun,Acc,ManyToManyLinks)
+	      end,
+    dip_utils:success_fold(FoldFun,Dict,ModelConfigs).
+
+get_many_to_many_links(#config{name=ModelName,links=Links}) ->
+    get_many_to_many_links_(ModelName,Links,[]).
+get_many_to_many_links_(_LocalModelName,[],Acc) ->
+    Acc;
+get_many_to_many_links_(LinkModelName,[#many_to_one{local_id=LinkID_1,
+				      model=RemoteModelName_1,
+				      remote_id=RemoteID_1}|RestLinks],Acc) ->
+    FoldFun = fun(#many_to_one{local_id=LinkID_2,
+			       model=RemoteModelName_2,
+			       remote_id=RemoteID_2},FoldAcc) ->
+		      [{RemoteModelName_1,#many_to_many{local_id = RemoteID_1,
+							link_model = LinkModelName,
+							link_local_id = LinkID_1,
+							link_remote_id = LinkID_2,
+							remote_model = RemoteModelName_2,
+							remote_id = RemoteID_2}}|FoldAcc]
+	      end,
+    lists:foldl(FoldFun,Acc,RestLinks).
     
+inverse_many_to_many(RemoteModelName_1,#many_to_many{local_id = RemoteID_1,
+						     link_model = LinkModelName,
+						     link_local_id = LinkID_1,
+						     link_remote_id = LinkID_2,
+						     remote_model = _RemoteModelName_2,
+						     remote_id = RemoteID_2}) ->
+    #many_to_many{local_id = RemoteID_2,
+		  link_model = LinkModelName,
+		  link_local_id = LinkID_2,
+		  link_remote_id = LinkID_1,
+		  remote_model = RemoteModelName_1,
+		  remote_id = RemoteID_1}.
+
+
+get_model_from_dict(Key,Dict) ->
+    case dict:is_key(Key,Dict) of
+	true ->
+	    Val = dict:fetch(Key,Dict),
+	    {ok,Val};
+	false ->
+	    {error,{unknown_model,Key}}
+    end.
+
+find_field(FieldName,Fields) ->
+    case lists:keyfind(FieldName,#field.name,Fields) of
+	false ->
+	    {error,{unknown_field,FieldName}};
+	Field ->
+	    {ok,Field}
+    end.
+
+check_fields(#field{name=Name1,record_options=#record_options{type=Type1}},
+	     #field{name=Name2,record_options=#record_options{type=Type2}}) ->
+    case Type1 =/= Type2 of
+	true ->
+	    Reason = dip_utils:template("Fields '~s' and '~s' has different types",[Name1,Name2]),
+	    {error,{wrong_types,Reason}};
+	false ->
+	    ok
+    end.
 
 %% ===================================================================
 %%% Internal functions
 %% ===================================================================
 
-normalize_({Filename,Config}) ->
+normalize_({Filename,Name,Config}) ->
     Res = do([error_m ||
 		 Options <- required(option,options,Config),
 		 validators(options,Options,[fun is_list/1, no(fun is_empty/1)]),
-
+		 
 		 Fields <- required(option,fields,Config),
 		 validators(fields,Fields,[fun is_list/1, no(fun is_empty/1)]),
 		 
 		 Options2 <- normalize_options(Options),
 		 Fields2 <- normalize_fields(Fields),
+		 ModuleName <- not_null_binary(Name),
+		 
 		 return(
-		   #config{fields=Fields2,
+		   #config{name=ModuleName,
+			   fields=Fields2,
 			   options=Options2,
 			   filename=Filename,
-			   links = []
+			   links = find_links(Fields2)
 			  }
 		  )
 		    ]),
@@ -160,8 +276,7 @@ normalize_field_options(Name,Type,FieldOptions) when is_list(FieldOptions) ->
       has_record = true,
       record_options = #record_options{
 	getter = true,
-	setter = true,
-	mode = rw
+	setter = true
        },
       is_in_database = true,
       db_options = #db_options{}
@@ -171,15 +286,23 @@ normalize_field_options(Name,Type,FieldOptions) when is_list(FieldOptions) ->
     	   IsRequired <- default(flag,required,FieldOptions,false),
     	   Descritption <- not_required(option,description,FieldOptions),
 	   Default <- not_required(option,default,FieldOptions),
-	   Mode <- default(option,mode,FieldOptions,rw),
-	   valid_variants(mode,Mode,[r, w, rw, sr, sw, srsw, rsw, srw]),
+	   Mode <- default(option,mode,FieldOptions,'if'(IsIndex,rsw,rw)),
+	   Validators <- default(option,validators,FieldOptions,[]),
+	   Validators2 <- valid_validators(Validators),
+	   case IsIndex of
+	       true ->
+		   valid_variants(mode,Mode,[r, sr, sw, srsw, rsw]);
+	       false ->
+		   valid_variants(mode,Mode,[r, w, rw, sr, sw, srsw, rsw, srw])
+	   end,
 	   Field2 <- begin
 			 RecOpts = Field#field.record_options,
 			 RecOpts2 = RecOpts#record_options{
 				      type = Type,
 				      description = Descritption,
 				      default_value = Default,
-				      mode = Mode
+				      mode = mode_to_acl(Mode),
+				      validators=Validators2
 				     },
 			 return(Field#field{
 				  name = Name,
@@ -238,13 +361,30 @@ parse_db_options(FieldOptions,#field{
 	   valid_variants(db_type,Type,[string,integer,datetime]),
 	   Alias <- default(option,db_alias,FieldOptions,Name),
 	   not_null_binary(Alias),
+	   Link <- not_required(option,link,FieldOptions),
+	   DBOptions2 <- set_link(Link,DBOptions),
 	   return(
 	     Field#field{
-	       db_options=DBOptions#db_options{
+	       db_options=DBOptions2#db_options{
 			    type=Type,
 			    alias=Alias
 			   }})
 	      ]).
+
+set_link(undefined,DBOptions) ->
+    DBOptions2 = DBOptions#db_options{is_link = false},
+    {ok,DBOptions2};
+set_link({Module,Field},DBOptions) ->
+    do([error_m ||
+	   Module2 <- not_null_binary(Module),
+	   Field2 <- not_null_binary(Field),
+	   return(DBOptions#db_options{
+		    is_link = true,
+		    link = {Module2,Field2}
+		   })
+		]); 
+set_link(_,_DBOptions) ->
+    {error,{wrong_format,"link format must be set as {link,{Model,Field}}"}}.
 
 set_safe_delete(true,Options) ->
     Options2 = Options#options{
@@ -265,6 +405,23 @@ set_safe_delete(FlagName,Options) ->
 		    deleted_flag_name = ValidFlagName
 		   })]).
 
+find_links(Fields) ->
+    AccFun = fun(#field{name=Name,
+			is_in_database=true,
+			db_options=#db_options{
+			  is_link=true,
+			  link={Model,Field}
+			 }}, Acc) ->
+		     Link = #many_to_one{
+		       local_id=Name,
+		       model=Model,
+		       remote_id=Field
+		      },
+		     [Link|Acc];
+		(_,Acc) -> Acc
+	     end,
+    lists:foldl(AccFun,[],Fields).
+    
 
 %% = Getters =========================================================
 
@@ -374,6 +531,15 @@ default_db_type(Else) ->
     Reason = dip_utils:template("Unknown default db_type for \"~p\"",[Else]),
     {error,{db_type,Reason}}.
 
+mode_to_acl(r) -> #access_mode{r=true,sr=true};
+mode_to_acl(w) -> #access_mode{w=true,sw=true};
+mode_to_acl(rw) -> #access_mode{r=true,sr=true,w=true,sw=true};
+mode_to_acl(sr) -> #access_mode{sr=true};
+mode_to_acl(sw) -> #access_mode{sw=true};
+mode_to_acl(srsw) -> #access_mode{sr=true,sw=true};
+mode_to_acl(rsw) -> #access_mode{r=true,sr=true,sw=true};
+mode_to_acl(srw) -> #access_mode{sr=true,w=true,sw=true}.
+
 %% ===================================================================
 %%% Validators
 %% ===================================================================
@@ -397,6 +563,23 @@ valid_record_type(Type) ->
 	    {error,{wrong_format,ReasonText}}
     end.
 
+valid_validators(Validators) when is_list(Validators) ->
+    MapFun = fun({M,F}) ->
+		      {ok,#validator_function{module=M,function=F,args=[]}};
+		 ({M,F,A}) ->
+		      {ok,#validator_function{module=M,function=F,args=A}};
+		 (Else) ->
+		      Reason = dip_utils:template(
+				 "validator option must set to {M,F} or {M,F,A} but not to ~s",[Else]
+				 ),
+		      {error,{wrong_format,Reason}}
+	      end,
+    dip_utils:success_map(MapFun,Validators),
+    {ok,Validators};
+valid_validators(_) ->
+    Reason = "'validators' option must be valid list",
+    {error,{wrong_format,Reason}}.
+    
 
 -spec valid_variants(Name,Option,Variants) -> ok | {error,{wrong_format,Reason}} when
    Name :: any(),
@@ -434,7 +617,7 @@ or_validators(Name,Option,Validators) ->
 	    Reason = dip_utils:template("Option ~p is invalid",[Name]),
 	    {error,{invalid,Reason}}
     end.
-or_validators_(Option,[]) -> {error,invalid};
+or_validators_(_Option,[]) -> {error,invalid};
 or_validators_(Option,[F|Rest]) when is_function(F) ->
     case F(Option) of
 	true -> ok;
@@ -452,6 +635,14 @@ no(Fun) when is_function(Fun) ->
     fun(Arg) ->
 	    not Fun(Arg)
     end.
+
+atom_to_binary_with_suffix(Atom,Suffix) ->
+    Bin = list_to_binary(atom_to_list(Atom)),
+    <<Bin/binary,Suffix/binary>>.
+
+'if'(true,Then,_) -> Then;
+'if'(false,_,Else) -> Else.
+    
 
 %% ===================================================================
 %%% Tests

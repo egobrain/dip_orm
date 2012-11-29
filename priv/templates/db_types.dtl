@@ -1,0 +1,59 @@
+%% -*- erlang -*-
+-record({{model_name}},{
+	  %| {% for f in fields %}
+	  %|	     {% if not forloop.first %}
+	  %\
+	  ,
+	  %|	     {% endif %}
+	  {{ f.name }}
+	  %\	     {% ifnotequal f.default undefined %}
+	  = {{f.default}}
+	  %\	     {% endifnotequal %}
+	  :: {{ f.type }} | undefined
+	  %\	     {% if not f.sr and f.sw and not f.custom %}
+	  | '$$write_only_stumb$$'
+	  %\         {% endif %}
+	  ,
+	  %\ {% if f.description %} {{ f.description }} {% endif %}
+          {{ f.name }}_changed =
+	  %\	     {% ifequal f.default undefined %}
+	  false
+	  %\	     {% else %}
+	  true
+	  %\         {% endifequal %}
+	  :: boolean()
+	  %| {% endfor %}
+	 }).
+
+-type {{model_name}}() :: #{{model_name}}{}.
+-type field() ::
+%\ {% for f in fields %}
+{{f.name}}
+%\    {% if not forloop.last %}
+|
+%\    {% endif %}
+%\ {% endfor %}
+.
+% {# -type required_field() ::
+% %\ {% for f in required_fields %}
+% {{f.name}}
+% %\    {% if not forloop.last %}
+% |
+% %\    {% endif %}
+% %\ {% endfor %} #}
+.
+-type field_type() ::
+%\ {% for f in fields %}
+{{ f.type }}
+%\    {% if not forloop.last %}
+|
+%\    {% endif %}
+%\{% endfor %}
+.
+-type params_error() :: required | forbidden | unknown.
+
+-export_type([{{model_name}}/0,
+	      field/0,
+	      field_type/0,
+	      params_error/0
+	     ]).

@@ -10,12 +10,29 @@
 
 -export([extract_config/1,
 	 get_module_name/1,
-	 place_generated_block/2
+	 place_generated_block/2,
+	 read_config/1
+	]).
+
+-export([
+	 write_module/3
 	]).
 
 %% ===================================================================
 %%% API
 %% ===================================================================
+
+-spec read_config(Filename) -> {ok,Config} | {error,Reason} when
+    Filename :: binary(),
+    Config :: any(),
+    Reason :: {wrong_syntax,any()}.
+read_config(Filename) ->
+    case file:consult(Filename) of
+	{ok,Config} -> {ok,Config};
+	{error,Reason} ->
+	    {error,{wrong_syntax,Reason}}
+    end.
+    
 
 -spec extract_config(Filename) -> {ok,Config} | {error, Reason} when
     Filename :: binary(),
@@ -52,14 +69,19 @@ place_generated_block(Filename,Block) ->
 	   Content2 <- place_generated_block_(Content,Block),
 	   file:write_file(Filename,Content2)
 	  ]).
-    
+
+write_module(Module,Path,Content) ->
+    ModuleFilename = module_filename(Module),
+    FilePath = filename:join(Path,ModuleFilename),
+    Content2 = list_to_binary(dip_utils:template("~s",[Content])),
+    {ok,Content3} = apply_formating_comments(Content2),
+    filelib:ensure_dir(Path),
+    file:write_file(FilePath,Content3).
     
 
 %% ===================================================================
 %%% Internal functions
 %% ===================================================================
-
-
 
 extract_config_(String) ->
     case 
@@ -114,7 +136,13 @@ drop_prev_block(Content) when is_binary(Content) ->
 			 {return,binary},
 			 dotall
 			]),
-    {ok,Result}.   
+    {ok,Result}.
+
+apply_formating_comments(Content) when is_binary(Content) ->
+    Content2 = re:replace(Content,"^\\s*%\\|.*$\n","",[global,multiline]),
+    Content3 = re:replace(Content2,"\n\\s*%\\\\\\s*\n\\s*"," ",[global,multiline]),
+    Content4 = re:replace(Content3,"%\\\\\\s*\n\\s*","",[global,multiline]),
+    {ok,Content4}.
 
 -spec split_code(Content) -> {ok,{DeclarationPart, FunctinosPart}} when
     Content :: binary(),
@@ -127,6 +155,13 @@ split_code(Content) ->
 						multiline
 					       ]),
     {ok,{DeclarationPart,FunctionsPart}}.
+
+module_filename(ModuleName) when is_atom(ModuleName) ->
+    module_filename(atom_to_list(ModuleName));
+module_filename(ModuleName) when is_list(ModuleName) ->
+    module_filename(list_to_binary(ModuleName));
+module_filename(ModuleName) when is_binary(ModuleName) ->
+    <<ModuleName/binary,".erl">>.
 
 %% ===================================================================
 %%% Tests

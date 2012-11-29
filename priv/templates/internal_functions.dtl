@@ -1,0 +1,20 @@
+%% -*- erlang -*-
+% This function uses for DB Insert and set manipulations,
+
+get_changed_fields({{model_name|capfirst}}) ->
+    DBFields = [
+		%| {% for f in fields %}
+		{ {{f.name}},
+		  {{model_name|capfirst}}#{{model_name}}.{{f.name}}_changed,
+		  {{model_name|capfirst}}#{{model_name}}.{{f.name}} }
+		%\    {% if not forloop.last %}
+		,
+		%|    {% endif %}
+		%| {% endfor %}
+	       ],
+    dip_utils:map_filter(
+      fun({Field,true,Val}) -> {ok,{Field,Val}};
+	 (_) -> filtered
+      end,
+      DBFields).
+

@@ -1,0 +1,39 @@
+%% -*- erlang -*-
+% @doc Return new empty datatype with predefined properties
+-spec new() -> {{options.name}}().
+new() ->
+    #{{model_name}}{}.
+
+%| {% for f in fields %}
+%|    {% if f.has_getter %}
+% @doc Getter for {{f.name}}
+-spec {{f.name}}({{model_name}}()) -> {{f.name|capfirst}}::{{f.type}}.
+{{f.name}}({{model_name|capfirst}}) ->
+    {{model_name|capfirst}}#{{model_name}}.{{f.name}}.
+%|    {% endif %}
+
+%|    {% if f.has_setter %}
+% @doc Setter for {{f.name}}
+-spec set_{{f.name}}({{f.type}},{{model_name}}()) -> {ok,{{model_name|capfirst}}::{{model_name}}()}.
+set_{{f.name}}(Val,#{{model_name}}{ {{f.name}} = {{f.name|capfirst}} } = {{model_name|capfirst}}) ->
+    case Val of
+	{{f.name|capfirst}} ->
+	    {ok,{{model_name|capfirst}}};
+	_ ->
+	    {ok,{{model_name|capfirst}}#{{model_name}}{ {{f.name}} = Val,{{f.name}}_changed=true } }
+    end.
+%|    {% endif %}
+%| {% endfor %}
+
+% {#
+% @doc Check if structure wasn't saved in Database.
+-spec is_new({{model_name|capfirst}} :: {{model_name}}()) -> boolean().
+is_new({{model_name|capfirst}}) ->
+    case {{model_name|capfirst}}#{{model_name}}.{{model_name}} of
+	undefined ->
+	    true;
+	_ ->
+	    {{model_name|capfirst}}#{{model_name}}.{{options.index.name}}_changed =:= true
+    end.
+
+% #}

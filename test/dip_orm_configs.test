@@ -112,51 +112,54 @@ utils_test_() ->
 
 configs_test_() ->
     Filename = "test.erl",
+    Test = fun(Config) ->
+		     normalize_({Filename,test_model,Config})
+	   end,
     [{"empty config",fun() ->
-			     {error,_} = normalize_({Filename,[]}),
-			     {error,_} = normalize_({Filename,[{options,[]}]}),
-			     {error,_} = normalize_({Filename,[
+			     {error,_} = Test([]),
+			     {error,_} = Test([{options,[]}]),
+			     {error,_} = Test([
 							      {fields,[]},
 							      {options,[]}
-							     ]}),
-			     {error,_} = normalize_({Filename,[
-							      {fields,[]},
-							      {options,[
-									{table,""}
-								       ]}
-							     ]}),
-			     {error,_} = normalize_({Filename,[
-							       {fields,[]},
-							       {options,[
-									 {table,"test"}
-									]}
-							      ]}),
-			     {error,_} = normalize_({Filename,[
-							       {fields,[{}]},
-							       {options,[
-									 {table,"test"}
-									]}
-							      ]}),
-			     {error,_} = normalize_({Filename,[
-							       {fields,[{"Test",unknown,[]}]},
-							       {options,[
-									 {table,"test"}
-									]}
-							      ]}),
-			     {error,_} = normalize_({Filename,[
-								{fields,[{"Test",binary,test}]},
-								{options,[
-									  {table,"test"}
-									 ]}
-							       ]})
-		     end},
+							     ]),
+			     {error,_} = Test([
+					       {fields,[]},
+					       {options,[
+							 {table,""}
+							]}
+					      ]),
+			     {error,_} = Test([
+					       {fields,[]},
+					       {options,[
+							 {table,"test"}
+							]}
+					      ]),
+			     {error,_} = Test([
+					       {fields,[{}]},
+					       {options,[
+							 {table,"test"}
+							]}
+					      ]),
+			     {error,_} = Test([
+					       {fields,[{"Test",unknown,[]}]},
+					       {options,[
+							 {table,"test"}
+							]}
+					      ]),
+			     {error,_} = Test([
+					       {fields,[{"Test",binary,test}]},
+					       {options,[
+							 {table,"test"}
+							]}
+					      ])
+     end},
      {"Check defaults",fun() ->
-			       {ok,Config} = normalize_({Filename,[
-								   {fields,[{"Test",binary,[]}]},
-								   {options,[
-									     {table,"test"}
-									    ]}
-								  ]}),
+			       {ok,Config} = Test([
+						   {fields,[{"Test",binary,[]}]},
+						   {options,[
+							     {table,"test"}
+							    ]}
+						  ]),
 			       #config{options=Option,
 				      fields=[Field],
 				      filename=Filename,
@@ -596,13 +599,45 @@ get_set_wrong_test_() ->
 				       {error,123}
 				      ],
 			       test(Getter,Setter,Test)
-		       end}
+		       end},
+     {"field link" ,fun() ->
+			    Getter = fun(Config) ->
+					     [F|_] = Config#config.fields,
+					     DBOpts = F#field.db_options,
+					     IsLink = DBOpts#db_options.is_link,
+					     {Model,Link} = case IsLink of
+								true ->
+								    DBOpts#db_options.link;
+								false ->
+								    {undefined,undefined}
+							    end,
+					     {IsLink,Model,Link}
+				     end,
+			    Setter = fun(Link) ->
+					     [
+					      {fields,[{field,binary,case Link of
+									 undefined_ -> [];
+									 Type -> [{link,Type}]
+								     end}]},
+					      {options,[{table,"Tablename"}]}
+					     ]
+				     end,
+			    Test = [
+				    {{ok,{true,<<"model">>,<<"field">>}},{model,field}},
+				    {{ok,{false,undefined,undefined}},undefined},
+				    {error,test},
+				    {error,{<<"test">>,123}},
+				    {error,{test,test,test}}
+				   ],
+			    test(Getter,Setter,Test)
+		    end}
+
     ].
 
 test(Getter,Setter,[]) -> ok;
 test(Getter,Setter,[{Result,InitValue}|Rest]) ->
     Filename = "test.erl",
-    Res = normalize_({Filename,Setter(InitValue)}),
+    Res = normalize_({Filename,test_model,Setter(InitValue)}),
     case Result of
 	error ->
 	    {error,_} = Res,
