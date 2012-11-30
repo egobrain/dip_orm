@@ -14,7 +14,7 @@ from_proplist(Proplist,{{model_name|capfirst}}) ->
       {% if f.system_can_write %}
 from_proplist_({ {{f.name}}, {{f.name|capfirst}} },{{model_name|capfirst}}) ->
     case dip_utils:valid_type({{f.type}},{{f.name|capfirst}}) of
-	{ok,Val} -> set_{{f.name}}(Val,{{model_name|capfirst}}),
+	{ok,Val} -> set_{{f.name}}(Val,{{model_name|capfirst}});
 	{error,Description} -> {error,{ {{f.name}}, Description } }
     end;
 %|    {% else %}
@@ -35,7 +35,7 @@ from_bin_proplist(Proplist,{{model_name|capfirst}}) ->
 
 %| {% for f in setter_fields %}
 %|    {% if f.user_can_write %}
-from_bin_proplist({ <<"{{f.name}}">>, {{f.name|capfirst}} },{{model_name|capfirst}}) ->
+from_bin_proplist_({ <<"{{f.name}}">>, {{f.name|capfirst}} },{{model_name|capfirst}}) ->
     Res = do([error_m ||
 		 Val <- dip_utils:valid_type({{f.type}},{{f.name|capfirst}}),
 		 Validator <- return(validator({{f.name}})),
@@ -48,10 +48,10 @@ from_bin_proplist({ <<"{{f.name}}">>, {{f.name|capfirst}} },{{model_name|capfirs
 	{error,Description} -> {error,{ {{f.name}}, Description } }
     end;
 %|    {% else %}
-from_bin_proplist([{ <<"{{f.name}}">>,_}|Rest],{{model_name|capfirst}}) -> {error, { {{f.name}},forbidden} };
+from_bin_proplist_([{ <<"{{f.name}}">>,_}|Rest],{{model_name|capfirst}}) -> {error, { {{f.name}},forbidden} };
 %|    {% endif %}
 %| {% endfor %}
-from_bin_proplist({ Name,_},{{model_name|capfirst}}) -> {error, {Name,unknown} }.
+from_bin_proplist_({ Name,_},{{model_name|capfirst}}) -> {error, {Name,unknown} }.
 
 % @doc Convert object to proplist.
 -spec to_proplist({{model_name|capfirst}}) -> [{Field,FieldType}] when
@@ -90,7 +90,7 @@ validator({{f.name}}) ->
 			     ,
 			     %\    {% endif %}
 			     %\ {% endfor %}
-			    ],{{f.is_required}}).     
+			    ],{{f.is_required}});     
 %| {% endfor %}
 validator(_) ->
     {error,unknown_validator}.

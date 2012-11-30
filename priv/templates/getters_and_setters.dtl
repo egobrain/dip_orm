@@ -1,6 +1,6 @@
 %% -*- erlang -*-
 % @doc Return new empty datatype with predefined properties
--spec new() -> {{options.name}}().
+-spec new() -> {{model_name}}().
 new() ->
     #{{model_name}}{}.
 

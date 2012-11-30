@@ -35,7 +35,7 @@ write(#config{name=Name} = Config, #global_config{output_src_folder=OutFolder}) 
 	       dip_orm_ast:comment("Database interection"),
 	       dip_orm_ast:export([
 				   {new,0},
-				   {get,1},
+				   {get, index_fields_count(Config)},
 				   {save,1},
 				   {delete,1}
 				  ]),
@@ -49,9 +49,16 @@ write(#config{name=Name} = Config, #global_config{output_src_folder=OutFolder}) 
 				   {from_bin_proplist,2},
 				   {to_proplist,1}
 				  ]),
+	       dip_orm_ast:export([
+				   {valid,1},
+				   {validator,1}
+				  ]),
 	       
 	       dip_orm_ast:spacer("Getters and setters"),
 	       render_getters_and_setters(Config),
+
+	       dip_orm_ast:spacer("CRUD. DB operations"),
+	       render_crud(Config),
 
 	       dip_orm_ast:spacer("Validators/Data setters"),
 	       render_data_validators(Config),
@@ -105,17 +112,21 @@ get_exports([],Acc) ->
 get_exports([#field{name=Name,
 		    record_options=#record_options{
 		      getter=Getter,
-		      setter=Setter
-		     }
-		    }|Rest],
-		    Acc) ->
-    Acc2 = case Getter of
-	       false -> Acc;
-	       _ -> [{binary_to_atom(Name),1}|Acc]
+		      setter=Setter,
+		      mode=#access_mode{
+			sr=SystemCanRead,
+			sw=SystemCanWrite
+		       }}}|Rest],
+	    Acc) ->
+    Acc2 = case {Getter,SystemCanRead} of
+	       {false,_} -> Acc;
+	       {_,true} -> [{binary_to_atom(Name),1}|Acc];
+	       {_,false} -> Acc
 	   end,
-    Acc3 = case Setter of
-	       false -> Acc2;
-	       _ -> [{binary_to_atom(<<"set_",Name/binary>>),1}|Acc2]
+    Acc3 = case {Setter,SystemCanWrite} of
+	       {false,_} -> Acc2;
+	       {_,true} -> [{binary_to_atom(<<"set_",Name/binary>>),2}|Acc2];	   
+	       {_,false} -> Acc2
 	   end,
     get_exports(Rest,Acc3).
     
@@ -155,6 +166,40 @@ get_getters_and_setters_field(#field{name=Name,
 	 {has_setter,HasSetter}
 	]};
 get_getters_and_setters_field(_) -> filtered.
+
+%% ===================================================================
+%%% CRUD. DB operations
+%% ===================================================================
+
+render_crud(#config{name=Name,fields=Fields}) ->
+    ModuleName = atom_to_list(module_atom(Name)),
+    IndexFields = get_index_fields(Fields),
+    {ok,Content} =  crud_dtl:render([{model_name,ModuleName},
+				     {index_fields,IndexFields}
+				    ]),
+    dip_orm_ast:raw(Content).
+get_index_fields(Fields) ->
+    dip_utils:map_filter(fun get_index_field/1,Fields).
+get_index_field(#field{name=Name,
+		       has_record=true,
+		       is_index=true,
+		       is_in_database=true,
+		       record_options=#record_options{
+			 type=Type
+			}}) ->
+    {ok,[
+	 {name,Name},
+	 {type,type_to_string(Type)}
+	]};
+get_index_field(_) -> filtered.
+
+index_fields_count(#config{fields=Fields}) ->
+    FoldFun = fun(#field{has_record=true,
+			 is_index=true,
+			 is_in_database=true}, Acc) -> Acc+1;
+		 (_,Acc) -> Acc
+	      end,
+    lists:foldl(FoldFun,0,Fields).
 
 %% ===================================================================
 %%% Validators/Data setters

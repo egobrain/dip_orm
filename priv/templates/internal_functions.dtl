@@ -12,9 +12,13 @@ get_changed_fields({{model_name|capfirst}}) ->
 		%|    {% endif %}
 		%| {% endfor %}
 	       ],
-    dip_utils:map_filter(
-      fun({Field,true,Val}) -> {ok,{Field,Val}};
-	 (_) -> filtered
-      end,
-      DBFields).
+    Res = dip_utils:map_filter(
+	    fun({Field,true,Val}) -> {ok,{Field,Val}};
+	       (_) -> filtered
+	    end,
+	    DBFields),
+    case Res of
+	[] -> {error,not_modified};
+	_ -> {ok,Res}
+    end.
 

@@ -41,7 +41,7 @@
 % |
 % %\    {% endif %}
 % %\ {% endfor %} #}
-.
+% .
 -type field_type() ::
 %\ {% for f in fields %}
 {{ f.type }}

@@ -116,8 +116,6 @@ get_validator(Validators,IsRequired) ->
 		{true,undefined} ->
 		    {error,required};
 		{false,undefined} ->
-		    ok;
-		_ ->		    
 		    case dip_utils:success_fold(
 			   fun(Fun,_) -> Fun(Element) end,
 			   ok,

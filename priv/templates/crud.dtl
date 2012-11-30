@@ -1,0 +1,91 @@
+%% -*- erlang -*-
+
+-spec get(
+	%\ {% for index_field in index_fields %}
+	{{index_field.name|capfirst}}
+	%\    {% if not forloop.last %}
+	,
+	%|    {% endif %}
+	%\ {% endfor %}
+	) -> {ok, {{model_name|capfirst}} } | {error,Reason} when
+    %| {% for index_field in index_fields %}
+    {{index_field.name|capfirst}} :: {{index_field.type}},
+    %| {% endfor %}
+    {{model_name|capfirst}} :: {{model_name}}(),
+    Reason :: db_error | undefined.
+get(
+  %\ {% for index_field in index_fields %}
+  {{index_field.name|capfirst}}
+  %\    {% if not forloop.last %}
+  ,
+  %|    {% endif %}
+  %\ {% endfor %}
+ ) ->
+    dip_orm(
+      select({{model_name}}),
+      where(
+	%| {% for index_field in index_fields %}
+	%|     {% if not forloop.first %}
+	%\
+	,
+	%|     {% endif %}
+	{{index_field.name}} = {{index_field.name|capfirst}}
+	%\ {% endfor %}
+	)).
+
+
+% @doc Save object in database and check required fields.
+-spec save({{model_name|capfirst}}) -> {ok,{{model_name|capfirst}}} | {error,Reason} when
+    {{model_name|capfirst}} :: {{model_name}}(),
+    Reason :: db_error | not_unique | not_modified | [{required_field() , required},...].
+save({{model_name|capfirst}}) ->
+    do([error_m ||
+	   valid({{model_name|capfirst}}),
+	   ChangedFields <- get_changed_fields({{model_name|capfirst}}),
+	   save({{model_name|capfirst}},ChangedFields,is_new({{model_name|capfirst}}))
+		]).
+save({{model_name|capfirst}},ChangedFields,true) ->
+    dip_orm(
+      insert({{model_name}}),
+      values(ChangedFields)
+     );
+save({{model_name|capfirst}},ChangedFields,field) ->
+    dip_orm(
+      update({{model_name}}),
+      values(ChangedFields),
+      where(
+	%| {% for index_field in index_fields %}
+	%|     {% if not forloop.first %}
+	%\
+	,
+	%|     {% endif %}
+	{{index_field.name}} = {{model_name|capfirst}}#{{model_name}}.{{index_field.name}}
+	%\ {% endfor %}
+       )).
+
+% @doc Delete objects from Database.
+-spec delete({{model_name|capfirst}}) -> ok | {error,Reason} when
+    {{model_name|capfirst}} :: {{model_name}}(),
+    Reason :: db_error.
+delete({{model_name|capfirst}}) ->
+    dip_orm(
+      delete({{model_name}}),
+      where(
+	%| {% for index_field in index_fields %}
+	%|     {% if not forloop.first %}
+	%\
+	,
+	%|     {% endif %}
+	{{index_field.name}} = {{model_name|capfirst}}#{{model_name}}.{{index_field.name}}
+	%\ {% endfor %}
+       )).
+
+is_new({{model_name|capfirst}}) ->
+    %\ {% for index_field in index_fields %}
+    %|     {% if not forloop.first %}
+    %\
+    orelse
+    %|     {% endif %}
+      {{model_name|capfirst}}#{{model_name}}.{{index_field.name}} =:= undefined
+    %\ {% endfor %}
+	.
