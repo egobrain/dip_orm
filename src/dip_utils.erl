@@ -8,12 +8,18 @@
 %%%-------------------------------------------------------------------
 -module(dip_utils).
 
+-include("log.hrl").
+
 -export([
 	 success_fold/3,
 	 success_map/2,
 
 	 error_writer_fold/3,
 	 error_writer_map/2,
+	 error_writer/1,
+
+	 state_error_writer/2,
+	 
 	 map_filter/2,
 	 contains/2
 	]).
@@ -79,6 +85,35 @@ error_writer_map(Fun,List) when is_list(List) ->
 	     end,
     error_writer_fold(MapFun,[],List).
 
+error_writer(List) ->
+    error_writer(List,[]).
+error_writer([],[]) -> ok;
+error_writer([],Errors) -> {error,Errors};
+error_writer([{error,Reason}|Rest],Errors) ->
+    error_writer(Rest,[Reason|Errors]);
+error_writer([_|Rest],Errors) ->
+    error_writer(Rest,Errors).
+
+-spec state_error_writer(State,Funs) -> {ok,{Results,State}} | {error,Errors} when
+    Funs :: fun((State) -> {ok,Result} | {error,Reason}),
+    Results :: [Result],
+    Errors :: [Reason].
+state_error_writer(State,Funs) ->
+    state_error_writer(State,Funs,[],[]).
+state_error_writer(State,[],Acc,[]) ->
+    {ok,{Acc,State}};
+state_error_writer(_State,[],_Acc,Errors) ->
+    {error,Errors};
+state_error_writer(State,[F|Rest],Acc,Errors) ->
+    case F(State) of
+	{ok,{Result,State2}} ->
+	    state_error_writer(State2,Rest,[Result|Acc],Errors);
+	{error,Reason} ->
+	    state_error_writer(State,Rest,Acc,[Reason|Errors])
+    end.
+    
+			   
+
 map_filter(Fun,List) when is_list(List) ->
     map_filter(Fun,List,[]).
 map_filter(_Fun,[],Acc) ->
@@ -103,7 +138,8 @@ contains(Option,[H|Rest]) ->
 %% ===================================================================
 
 template(Template,Args) ->
-    IOList = io_lib:format(Template,Args),
+    Template2 = lists:flatten(Template),
+    IOList = io_lib:format(Template2,Args),
     lists:flatten(IOList).
 
 %% ===================================================================

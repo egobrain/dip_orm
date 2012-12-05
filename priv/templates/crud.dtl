@@ -22,14 +22,14 @@ get(
   %\ {% endfor %}
  ) ->
     dip_orm(
-      select({{model_name}}),
+      select({{model}}),
       where(
 	%| {% for index_field in index_fields %}
 	%|     {% if not forloop.first %}
 	%\
-	,
+	andalso
 	%|     {% endif %}
-	{{index_field.name}} = {{index_field.name|capfirst}}
+	{{index_field.name}} == {{index_field.name|capfirst}}
 	%\ {% endfor %}
 	)).
 
@@ -46,20 +46,20 @@ save({{model_name|capfirst}}) ->
 		]).
 save({{model_name|capfirst}},ChangedFields,true) ->
     dip_orm(
-      insert({{model_name}}),
+      insert({{model}}),
       values(ChangedFields)
      );
 save({{model_name|capfirst}},ChangedFields,field) ->
     dip_orm(
-      update({{model_name}}),
+      update({{model}}),
       values(ChangedFields),
       where(
 	%| {% for index_field in index_fields %}
 	%|     {% if not forloop.first %}
 	%\
-	,
+	andalso
 	%|     {% endif %}
-	{{index_field.name}} = {{model_name|capfirst}}#{{model_name}}.{{index_field.name}}
+	{{index_field.name}} == {{model_name|capfirst}}#{{model_name}}.{{index_field.name}}
 	%\ {% endfor %}
        )).
 
@@ -69,14 +69,14 @@ save({{model_name|capfirst}},ChangedFields,field) ->
     Reason :: db_error.
 delete({{model_name|capfirst}}) ->
     dip_orm(
-      delete({{model_name}}),
+      delete({{model}}),
       where(
 	%| {% for index_field in index_fields %}
 	%|     {% if not forloop.first %}
 	%\
-	,
+	andalso
 	%|     {% endif %}
-	{{index_field.name}} = {{model_name|capfirst}}#{{model_name}}.{{index_field.name}}
+	{{index_field.name}} == {{model_name|capfirst}}#{{model_name}}.{{index_field.name}}
 	%\ {% endfor %}
        )).
 

@@ -43,7 +43,7 @@ models(RebarConfig,_AppFile) ->
 			       RawDBModelConfigs),
 	   DBModelConfigs2 <- dip_orm_configs:fill_links(DBModelConfigs),
 	   write_db_models(DBModelConfigs2,GlobalConfig),
-	   dip_orm_config_file:write(dip_orm_config,DBModelConfigs2,GlobalConfig)
+	   dip_orm_config_file:write(dip_orm,DBModelConfigs2,GlobalConfig)
 	  ]).
     
 %% ===================================================================

@@ -17,6 +17,16 @@
 	 get_db_model_config/1,
 	 fill_links/1
 	]).
+
+-export([
+	 find_model/2,
+	 get_model_field/2,
+
+	 field/2,
+	 model/2,
+	 
+	 find_link/2
+	]).
 -include("log.hrl").
 
 %% ===================================================================
@@ -35,6 +45,65 @@
 	      global_config/0
 	     ]).
 
+%% ===================================================================
+%%% API
+%% ===================================================================
+
+find_model(ModelName,Models) ->
+    do([error_m ||
+	   ModelName2 <- not_null_binary(ModelName),
+	   find_model_(ModelName2,Models)
+	      ]).
+
+find_model_(ModelName,Models) ->
+    case lists:keyfind(ModelName,#config.name,Models) of
+	#config{} = Model ->
+	    {ok,Model};
+	false ->
+	    Reason = dip_utils:template("Unknown model: ~s",[ModelName]), 
+	    {error,Reason}
+    end.
+
+find_link(#config{name=LocalModelName,links=Links},
+	  #config{name=RemoteModelName}) ->
+    FoldFun = fun(#one_to_many{remote_model=R}=Link,_Acc) when R =:= RemoteModelName->
+		      {ok,Link};
+		 (#many_to_one{remote_model=R}=Link,_Acc) when R =:= RemoteModelName ->
+		      {ok,Link};
+		 (#one_to_many{remote_model=R}=Link,_Acc) when R =:= RemoteModelName ->
+		      {ok,Link};
+		 (_,Acc) ->
+		      Acc
+	      end,
+    Reason = dip_utils:template("No model '~s' is linked to '~s'",[RemoteModelName,LocalModelName]),
+    lists:foldl(FoldFun,{error,Reason},Links).
+		      
+    
+get_model_field(FieldName,ModelConfig) ->
+    do([error_m ||
+	   FieldName2 <- not_null_binary(FieldName),
+	   get_model_field_(FieldName2,ModelConfig)
+	      ]).
+get_model_field_(FieldName,#config{fields=Fields}) ->
+    case lists:keyfind(FieldName,#field.name,Fields) of
+	#field{is_in_database=true} = Field ->
+	    {ok,Field};
+	#field{is_in_database=false} ->
+	    Reason = dip_utils:template("Field '~s' does not stores in database",[FieldName]), 
+	    {error,Reason};
+	false ->
+	    Reason = dip_utils:template("Unknown field: ~s",[FieldName]), 
+	    {error,Reason}
+    end.
+
+field(name,#field{name=Name}) -> Name;
+field(db_type,#field{db_options=#db_options{type=Db_type}}) -> Db_type.
+
+model(name,#config{name=Name}) -> Name;
+model(db_fields,#config{fields=Fields}) ->
+    [F || F <- Fields,F#field.is_in_database,((F#field.record_options)#record_options.mode)#access_mode.sr].
+    
+	    
 %% ===================================================================
 %%% API
 %% ===================================================================
@@ -110,7 +179,7 @@ fill_links(ModelConfigs) ->
 fill_one_to_many_links(ModelConfigs,Dict) ->
     FoldFun = fun(#config{name=LocalModelName,fields=LocalFields,links=LocalLinks},Acc) ->
 		      SubFoldFun = fun(#many_to_one{local_id=LocalID,
-						    model=RemoteModelName,
+						    remote_model=RemoteModelName,
 						    remote_id=RemoteID},
 				       Acc2) ->
 					   do([error_m ||
@@ -120,7 +189,7 @@ fill_one_to_many_links(ModelConfigs,Dict) ->
 						  check_fields(LocalField,RemoteField),
 						  Link <- return(#one_to_many{
 						    local_id=RemoteID,
-						    model=LocalModelName,
+						    remote_model=LocalModelName,
 						    remote_id=LocalID
 						   }),
 						  return(dict:store(RemoteModelName,{RemoteFields,[Link|RemoteLinks]},Acc2))
@@ -162,10 +231,10 @@ get_many_to_many_links(#config{name=ModelName,links=Links}) ->
 get_many_to_many_links_(_LocalModelName,[],Acc) ->
     Acc;
 get_many_to_many_links_(LinkModelName,[#many_to_one{local_id=LinkID_1,
-				      model=RemoteModelName_1,
+				      remote_model=RemoteModelName_1,
 				      remote_id=RemoteID_1}|RestLinks],Acc) ->
     FoldFun = fun(#many_to_one{local_id=LinkID_2,
-			       model=RemoteModelName_2,
+			       remote_model=RemoteModelName_2,
 			       remote_id=RemoteID_2},FoldAcc) ->
 		      [{RemoteModelName_1,#many_to_many{local_id = RemoteID_1,
 							link_model = LinkModelName,
@@ -414,7 +483,7 @@ find_links(Fields) ->
 			 }}, Acc) ->
 		     Link = #many_to_one{
 		       local_id=Name,
-		       model=Model,
+		       remote_model=Model,
 		       remote_id=Field
 		      },
 		     [Link|Acc];

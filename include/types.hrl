@@ -43,13 +43,13 @@
 
 -record(many_to_one,{
 	  local_id :: field_name(),
-	  model :: model_name(),
+	  remote_model :: model_name(),
 	  remote_id   :: field_name()
 	 }).
 
 -record(one_to_many,{
 	  local_id :: field_name(),
-	  model :: model_name(),
+	  remote_model :: model_name(),
 	  remote_id   :: field_name()
 	 }).
 

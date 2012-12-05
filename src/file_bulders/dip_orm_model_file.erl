@@ -26,6 +26,7 @@ write(#config{name=Name} = Config, #global_config{output_src_folder=OutFolder}) 
 	       auto(start),
 	       dip_orm_ast:attribute(compile,[{parse_transform,do}]),
 	       dip_orm_ast:attribute(compile,[{parse_transform,cut}]),
+	       dip_orm_ast:attribute(compile,[{parse_transform,dip_orm}]),
 	       dip_orm_ast:attribute(include,["log.hrl"]),
 
 	       dip_orm_ast:spacer("TYPES"),
@@ -174,7 +175,8 @@ get_getters_and_setters_field(_) -> filtered.
 render_crud(#config{name=Name,fields=Fields}) ->
     ModuleName = atom_to_list(module_atom(Name)),
     IndexFields = get_index_fields(Fields),
-    {ok,Content} =  crud_dtl:render([{model_name,ModuleName},
+    {ok,Content} =  crud_dtl:render([{model,binary_to_atom(Name)},
+				     {model_name,ModuleName},
 				     {index_fields,IndexFields}
 				    ]),
     dip_orm_ast:raw(Content).
@@ -300,9 +302,8 @@ binary_to_atom(Bin) ->
     list_to_atom(binary_to_list(Bin)).
 
 module_atom(Str) ->
-    list_to_atom(
-      binary_to_list(
-	<<?PREFIX,Str/binary>>)).
+    binary_to_atom(
+	<<?PREFIX,Str/binary>>).
 
 auto(start) ->
     Content =

@@ -8,6 +8,8 @@
 -module(dip_orm_file).
 -compile({parse_transform,do}).
 
+-include("log.hrl").
+
 -export([extract_config/1,
 	 get_module_name/1,
 	 place_generated_block/2,
@@ -30,7 +32,7 @@ read_config(Filename) ->
     case file:consult(Filename) of
 	{ok,Config} -> {ok,Config};
 	{error,Reason} ->
-	    {error,{wrong_syntax,Reason}}
+	    {error,{Filename,Reason}}
     end.
     
 
