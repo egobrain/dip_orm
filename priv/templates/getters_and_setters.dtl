@@ -25,10 +25,16 @@ set_{{f.name}}(Val,#{{model_name}}{ {{f.name}} = {{f.name|capfirst}} } = {{model
 %|    {% endif %}
 %| {% endfor %}
 
+% @doc Check if structure wasn't saved in Database.
+-spec is_new({{model_name|capfirst}} :: {{model_name}}()) -> boolean().
+is_new({{model_name|capfirst}}) ->
+    {{model_name|capfirst}}#{{model_name}}.'$is_new$'.
+
 % {#
 % @doc Check if structure wasn't saved in Database.
 -spec is_new({{model_name|capfirst}} :: {{model_name}}()) -> boolean().
 is_new({{model_name|capfirst}}) ->
+    
     case {{model_name|capfirst}}#{{model_name}}.{{model_name}} of
 	undefined ->
 	    true;

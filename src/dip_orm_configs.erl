@@ -22,10 +22,12 @@
 	 find_model/2,
 	 get_model_field/2,
 
+	 
 	 field/2,
 	 model/2,
 	 
-	 find_link/2
+	 find_link/2,
+	 link_to_join/1
 	]).
 -include("log.hrl").
 
@@ -36,7 +38,7 @@
 -include("types.hrl").
 
 -export_type([
-	      config/0,
+	      model/0,
 	      options/0,
 	      field/0,
 	      record_options/0,
@@ -56,21 +58,29 @@ find_model(ModelName,Models) ->
 	      ]).
 
 find_model_(ModelName,Models) ->
-    case lists:keyfind(ModelName,#config.name,Models) of
-	#config{} = Model ->
+    case lists:keyfind(ModelName,#model.name,Models) of
+	#model{} = Model ->
 	    {ok,Model};
 	false ->
 	    Reason = dip_utils:template("Unknown model: ~s",[ModelName]), 
 	    {error,Reason}
     end.
 
-find_link(#config{name=LocalModelName,links=Links},
-	  #config{name=RemoteModelName}) ->
+% find_field(FieldName,#model{fields=Fields} = Model) ->
+%     case lists:keyfind(FieldName,#field.name,Fields) of
+% 	#field{} = Field ->
+% 	    {ok,Field};
+% 	false ->
+% 	    {error,undefined}
+%     end.
+
+find_link(#model{name=LocalModelName,links=Links},
+	  #model{name=RemoteModelName}) ->
     FoldFun = fun(#one_to_many{remote_model=R}=Link,_Acc) when R =:= RemoteModelName->
 		      {ok,Link};
 		 (#many_to_one{remote_model=R}=Link,_Acc) when R =:= RemoteModelName ->
 		      {ok,Link};
-		 (#one_to_many{remote_model=R}=Link,_Acc) when R =:= RemoteModelName ->
+		 (#many_to_many{remote_model=R}=Link,_Acc) when R =:= RemoteModelName ->
 		      {ok,Link};
 		 (_,Acc) ->
 		      Acc
@@ -84,7 +94,7 @@ get_model_field(FieldName,ModelConfig) ->
 	   FieldName2 <- not_null_binary(FieldName),
 	   get_model_field_(FieldName2,ModelConfig)
 	      ]).
-get_model_field_(FieldName,#config{fields=Fields}) ->
+get_model_field_(FieldName,#model{fields=Fields}) ->
     case lists:keyfind(FieldName,#field.name,Fields) of
 	#field{is_in_database=true} = Field ->
 	    {ok,Field};
@@ -97,13 +107,43 @@ get_model_field_(FieldName,#config{fields=Fields}) ->
     end.
 
 field(name,#field{name=Name}) -> Name;
-field(db_type,#field{db_options=#db_options{type=Db_type}}) -> Db_type.
+field(db_type,#field{db_options=#db_options{type=Db_type}}) -> Db_type;
+field(db_alias,#field{db_options=#db_options{alias=Db_alias}}) -> Db_alias.
 
-model(name,#config{name=Name}) -> Name;
-model(db_fields,#config{fields=Fields}) ->
-    [F || F <- Fields,F#field.is_in_database,((F#field.record_options)#record_options.mode)#access_mode.sr].
-    
-	    
+model(name,#model{name=Name}) -> Name;
+model(db_fields,#model{fields=Fields}) ->
+    [F || F <- Fields,F#field.is_in_database,((F#field.record_options)#record_options.mode)#access_mode.sr];
+model(db_table,#model{options=#options{table=Table}}) -> Table;
+model(safe_delete,#model{options=#options{deleted_flag_name=Flag}}) -> Flag.
+   
+
+link_to_join(#one_to_many{local_table=LocalTable,
+			  local_id_alias=LocalIDAlias,
+			  remote_table=RemoteTable,
+			  remote_id_alias=RemoteIDAlias}) ->
+    join_str(LocalTable,LocalIDAlias,RemoteTable,RemoteIDAlias);
+link_to_join(#many_to_one{local_table=LocalTable,
+			  local_id_alias=LocalIDAlias,
+			  remote_table=RemoteTable,
+			  remote_id_alias=RemoteIDAlias}) ->
+    join_str(LocalTable,LocalIDAlias,RemoteTable,RemoteIDAlias);
+link_to_join(#many_to_many{local_table=LocalTable,
+			   local_id_alias=LocalIDAlias,
+			   link_local_id_alias=LinkLocalIDAlias,
+			   link_table=LinkTable,
+			   link_remote_id_alias=LinkRemoteIDAlias,
+			   remote_table=RemoteTable,
+			   remote_id_alias=RemoteIDAlias}) ->
+    [
+     join_str(LocalTable,LocalIDAlias,LinkTable,LinkLocalIDAlias),
+     join_str(LinkTable,LinkRemoteIDAlias,RemoteTable,RemoteIDAlias)
+    ].
+
+join_str(LocalTable,LocalID,RemoteTable,RemoteID) ->
+    [" JOIN \"",RemoteTable,"\" ON \"",RemoteTable,"\".\"",RemoteID,"\" = \"",LocalTable,"\".\"",LocalID,"\""].
+
+			  
+
 %% ===================================================================
 %%% API
 %% ===================================================================
@@ -153,110 +193,219 @@ get_config(_,_) ->
 
 -spec normalize(FileConfigs) -> {ok,Configs} | {error,Reason} when
     FileConfigs :: {Filename :: binary(), Config :: any()},
-    Configs :: [config()],
+    Configs :: [model()],
     Reason :: any().
 normalize(Configs) ->
     do([error_m ||
 	       dip_utils:success_map(fun normalize_/1,Configs)
 	      ]).
 
-fill_links(ModelConfigs) ->
-    Dict = dict:new(),
-    FoldFun = fun(#config{name=Name,fields=Fields,links=Links},Acc) ->
-		      dict:store(Name,{Fields,Links},Acc)
-	      end,
-    Dict2 = lists:foldl(FoldFun,Dict,ModelConfigs),
+fill_links(Models) ->
+    Dict = models_to_dict(Models),
     do([error_m ||
-	   Dict3 <- fill_one_to_many_links(ModelConfigs,Dict2),
-	   Dict4 <- fill_many_to_many_links(ModelConfigs,Dict3),
-	   MapFun <- return(fun(#config{name=Name}=Config) ->
-	   			    {_Fields,Links} = dict:fetch(Name,Dict4),
-	   			    Config#config{links = Links}
-	   		    end),
-	   return([MapFun(Config) || Config <- ModelConfigs])
-		]).
+	   Dict2 <- fill_links_db_options(Dict),
+	   Dict3 <- fill_one_to_many_links(Dict2),
+	   Dict4 <- fill_many_to_many_links(Dict3),
+	   print_dict_links(Dict4),
+	   return(dict_to_models(Dict4))
+	      ]).
 
-fill_one_to_many_links(ModelConfigs,Dict) ->
-    FoldFun = fun(#config{name=LocalModelName,fields=LocalFields,links=LocalLinks},Acc) ->
-		      SubFoldFun = fun(#many_to_one{local_id=LocalID,
+models_to_dict(Models) ->
+    Names = [Name || #model{name=Name} <- Models],
+    Proplist = lists:zip(Names,Models),
+    dict:from_list(Proplist).
+
+dict_to_models(Dict) ->
+    Proplist = dict:to_list(Dict),
+    {_,Models} = lists:unzip(Proplist),
+    Models.
+
+print_dict_links(Dict) ->
+    Models = dict_to_models(Dict),
+    [?DBG("~s: ~p",[Name,Links]) || #model{name=Name,links=Links} <- Models],
+    ?DBG(" ~n =========================================== ~n ").
+
+fill_links_db_options(ModelsDict) ->
+    FoldFun = fun(#model{name=LocalModelName,links=Links} = LocalModel,Dict) ->
+		      LocalTable = model(db_table,LocalModel),
+		      MapFun = fun(#many_to_one{local_id=LocalID,
+						remote_model=RemoteModelName,
+						remote_id=RemoteID} = Link) ->
+				       do([error_m ||
+					      RemoteModel <- get_model_from_dict(RemoteModelName,Dict),
+					      LocalField <- find_field(LocalID,LocalModel),
+					      RemoteField <- find_field(RemoteID,RemoteModel),
+					      return(Link#many_to_one{
+						       local_model = LocalModelName,
+						       local_table = LocalTable,
+						       local_id_alias = field(db_alias,LocalField),
+						       remote_table = model(db_table,RemoteModel),
+						       remote_id_alias = field(db_alias,RemoteField)
+						      })
+						 ])
+			       end,
+		      do([error_m ||
+			     NewLinks <- dip_utils:success_map(MapFun,Links),
+			     Dict2 <- return(dict:store(LocalModelName,LocalModel#model{links=NewLinks},Dict)),
+			     return(Dict2)
+				])
+	      end,
+    Models = dict_to_models(ModelsDict),
+    dip_utils:success_fold(FoldFun,ModelsDict,Models).
+		     
+    
+fill_one_to_many_links(ModelsDict) ->
+    FoldFun = fun(#model{links=LocalLinks} = LocalModel,ModelsDict1) ->
+		      SubFoldFun = fun(#many_to_one{local_model=LocalModelName,
+						    local_id=LocalID,
 						    remote_model=RemoteModelName,
-						    remote_id=RemoteID},
-				       Acc2) ->
+						    remote_id=RemoteID,
+
+						    local_table=LocalTable,
+						    local_id_alias=LocalIDAlias,
+						    remote_table=RemoteTable,
+						    remote_id_alias=RemoteIDAlias
+						   },
+				       ModelsDict2) ->
 					   do([error_m ||
-						  {RemoteFields,RemoteLinks} <- get_model_from_dict(RemoteModelName,Acc2),
-						  LocalField <- find_field(LocalID,LocalFields),
-						  RemoteField <- find_field(RemoteID,RemoteFields),
+						  RemoteModel <- get_model_from_dict(RemoteModelName,ModelsDict2),  
+						  LocalField <- find_field(LocalID,LocalModel),
+						  RemoteField <- find_field(RemoteID,RemoteModel),
 						  check_fields(LocalField,RemoteField),
 						  Link <- return(#one_to_many{
+						    local_model=RemoteModelName,
 						    local_id=RemoteID,
 						    remote_model=LocalModelName,
-						    remote_id=LocalID
+						    remote_id=LocalID,
+
+						    local_table=RemoteTable,
+						    local_id_alias=RemoteIDAlias,
+						    remote_table=LocalTable,
+						    remote_id_alias=LocalIDAlias
 						   }),
-						  return(dict:store(RemoteModelName,{RemoteFields,[Link|RemoteLinks]},Acc2))
-						     ])
+						  return(dict:store(RemoteModelName,append_link(Link,RemoteModel),ModelsDict2))
+						     ]);
+				      (_,ModelsDict2) ->
+					   ModelsDict2
 				   end,
-		      dip_utils:success_fold(SubFoldFun,Acc,LocalLinks)
+		      dip_utils:success_fold(SubFoldFun,ModelsDict1,LocalLinks)
 	      end,
-    dip_utils:success_fold(FoldFun,Dict,ModelConfigs).
+    Models = dict_to_models(ModelsDict),
+    dip_utils:success_fold(FoldFun,ModelsDict,Models).
 
-fill_many_to_many_links(ModelConfigs,Dict) ->
-    FoldFun = fun(#config{fields=LinkFields} = Config,Acc) ->
-		      ManyToManyLinks = get_many_to_many_links(Config),
-		      SubFoldFun = fun({RemoteModelName_1,#many_to_many{local_id = RemoteID_1,
-									link_local_id = LinkID_1,
-									link_remote_id = LinkID_2,
-									remote_model = RemoteModelName_2,
-									remote_id = RemoteID_2} = Link_1},Acc2) ->
-					   do([error_m ||
-						  {RemoteFields_1,RemoteLinks_1} <- get_model_from_dict(RemoteModelName_1,Acc2),
-						  {RemoteFields_2,RemoteLinks_2} <- get_model_from_dict(RemoteModelName_2,Acc2),
-						  RemoteField_1 <- find_field(RemoteID_1,RemoteFields_1),
-						  LinkField_1 <- find_field(LinkID_1,LinkFields),
-						  check_fields(RemoteField_1,LinkField_1),
-						  
-						  RemoteField_2 <- find_field(RemoteID_2,RemoteFields_2),
-						  LinkField_2 <- find_field(LinkID_2,LinkFields),
-						  check_fields(RemoteField_2,LinkField_2),
-						  Link_2 <- return(inverse_many_to_many(RemoteModelName_1,Link_1)),
-						  Acc3 <- return(dict:store(RemoteModelName_1,{RemoteFields_1,[Link_1|RemoteLinks_1]},Acc2)),
-						  return(dict:store(RemoteModelName_2,{RemoteFields_2,[Link_2|RemoteLinks_2]},Acc3))
-						     ])
-				   end,
-		      dip_utils:success_fold(SubFoldFun,Acc,ManyToManyLinks)
-	      end,
-    dip_utils:success_fold(FoldFun,Dict,ModelConfigs).
+append_link(Link,#model{links=Links} = Model) ->
+    Model#model{links=[Link|Links]}.
 
-get_many_to_many_links(#config{name=ModelName,links=Links}) ->
-    get_many_to_many_links_(ModelName,Links,[]).
-get_many_to_many_links_(_LocalModelName,[],Acc) ->
-    Acc;
-get_many_to_many_links_(LinkModelName,[#many_to_one{local_id=LinkID_1,
-				      remote_model=RemoteModelName_1,
-				      remote_id=RemoteID_1}|RestLinks],Acc) ->
-    FoldFun = fun(#many_to_one{local_id=LinkID_2,
-			       remote_model=RemoteModelName_2,
-			       remote_id=RemoteID_2},FoldAcc) ->
-		      [{RemoteModelName_1,#many_to_many{local_id = RemoteID_1,
-							link_model = LinkModelName,
-							link_local_id = LinkID_1,
-							link_remote_id = LinkID_2,
-							remote_model = RemoteModelName_2,
-							remote_id = RemoteID_2}}|FoldAcc]
-	      end,
-    lists:foldl(FoldFun,Acc,RestLinks).
-    
-inverse_many_to_many(RemoteModelName_1,#many_to_many{local_id = RemoteID_1,
-						     link_model = LinkModelName,
+fill_many_to_many_links(ModelsDict) ->
+    FoldFun = fun(LinkModel,ModelsDict1) ->
+		      ManyToManyLinks = get_many_to_many_links(LinkModel),
+		      SubFoldFun = fun(#many_to_many{local_model=RemoteModelName_1,
+						     local_id = RemoteID_1,
 						     link_local_id = LinkID_1,
 						     link_remote_id = LinkID_2,
-						     remote_model = _RemoteModelName_2,
-						     remote_id = RemoteID_2}) ->
-    #many_to_many{local_id = RemoteID_2,
+						     remote_model = RemoteModelName_2,
+						     remote_id = RemoteID_2} = Link_1,ModelsDict2) ->
+					   do([error_m ||
+						  RemoteModel_1 <- get_model_from_dict(RemoteModelName_1,ModelsDict2),
+						  RemoteModel_2 <- get_model_from_dict(RemoteModelName_2,ModelsDict2),
+						  RemoteField_1 <- find_field(RemoteID_1,RemoteModel_1),
+						  LinkField_1 <- find_field(LinkID_1,LinkModel),
+						  check_fields(RemoteField_1,LinkField_1),
+						  
+						  RemoteField_2 <- find_field(RemoteID_2,RemoteModel_2),
+						  LinkField_2 <- find_field(LinkID_2,LinkModel),
+						  check_fields(RemoteField_2,LinkField_2),
+						  Link_2 <- return(inverse_many_to_many(Link_1)),
+						  ModelsDict3 <- return(dict:store(RemoteModelName_1,append_link(Link_1,RemoteModel_1),ModelsDict2)),
+						  return(dict:store(RemoteModelName_2,append_link(Link_2,RemoteModel_2),ModelsDict3))
+						     ]);
+				      (_,ModelsDict2) ->
+					   ModelsDict2
+				   end,
+		      dip_utils:success_fold(SubFoldFun,ModelsDict1,ManyToManyLinks)
+	      end,
+    Models = dict_to_models(ModelsDict),
+    dip_utils:success_fold(FoldFun,ModelsDict,Models).
+
+get_many_to_many_links(#model{links=Links}) ->
+    get_many_to_many_links_(Links,[]).
+get_many_to_many_links_([],Acc) ->
+    Acc;
+get_many_to_many_links_([#many_to_one{local_model=LinkModelName_1,
+				      local_id=LinkID_1,
+				      remote_model=RemoteModelName_1,
+				      remote_id=RemoteID_1,
+
+				      local_table=LinkTable_1,
+				      local_id_alias=LinkIDAlias_1,
+				      remote_table=RemoteTable_1,
+				      remote_id_alias=RemoteIDAlias_1 }|RestLinks],Acc) ->
+    FoldFun = fun(#many_to_one{local_model=_LinkModelName_2,
+			       local_id=LinkID_2,
+			       remote_model=RemoteModelName_2,
+			       remote_id=RemoteID_2,
+
+			       local_table=_LinkTable_2,
+			       local_id_alias=LinkIDAlias_2,
+			       remote_table=RemoteTable_2,
+			       remote_id_alias=RemoteIDAlias_2
+
+			      },FoldAcc) ->
+		      [#many_to_many{local_model=RemoteModelName_1,
+				     local_id = RemoteID_1,
+				     link_model = LinkModelName_1,
+				     link_local_id = LinkID_1,
+				     link_remote_id = LinkID_2,
+				     remote_model = RemoteModelName_2,
+				     remote_id = RemoteID_2,
+
+				     local_table=RemoteTable_1,
+				     local_id_alias=RemoteIDAlias_1,
+				     link_table=LinkTable_1,
+				     link_local_id_alias=LinkIDAlias_1,
+				     link_remote_id_alias=LinkIDAlias_2,
+				     remote_table=RemoteTable_2,
+				     remote_id_alias=RemoteIDAlias_2
+				    }|FoldAcc];
+		 (_,FoldAcc) ->
+		      FoldAcc
+	      end,
+    lists:foldl(FoldFun,Acc,RestLinks);
+get_many_to_many_links_([_|Rest],Acc) ->
+    get_many_to_many_links_(Rest,Acc).
+    
+inverse_many_to_many(#many_to_many{local_model = RemoteModelName_1,
+				   local_id = RemoteID_1,
+				   link_model = LinkModelName,
+				   link_local_id = LinkID_1,
+				   link_remote_id = LinkID_2,
+				   remote_model = RemoteModelName_2,
+				   remote_id = RemoteID_2,
+
+				   local_table=RemoteTable_1,
+				   local_id_alias=RemoteIDAlias_1,
+				   link_table=LinkTable,
+				   link_local_id_alias=LinkIDAlias_1,
+				   link_remote_id_alias=LinkIDAlias_2,
+				   remote_table=RemoteTable_2,
+				   remote_id_alias=RemoteIDAlias_2
+				  }) ->
+    #many_to_many{local_model=RemoteModelName_2,
+		  local_id = RemoteID_2,
 		  link_model = LinkModelName,
 		  link_local_id = LinkID_2,
 		  link_remote_id = LinkID_1,
 		  remote_model = RemoteModelName_1,
-		  remote_id = RemoteID_1}.
+		  remote_id = RemoteID_1,
+
+		  local_table=RemoteTable_2,
+		  local_id_alias=RemoteIDAlias_2,
+		  link_table=LinkTable,
+		  link_local_id_alias=LinkIDAlias_2,
+		  link_remote_id_alias=LinkIDAlias_1,
+		  remote_table=RemoteTable_1,
+		  remote_id_alias=RemoteIDAlias_1
+		 }.
 
 
 get_model_from_dict(Key,Dict) ->
@@ -268,7 +417,7 @@ get_model_from_dict(Key,Dict) ->
 	    {error,{unknown_model,Key}}
     end.
 
-find_field(FieldName,Fields) ->
+find_field(FieldName,#model{fields=Fields}) ->
     case lists:keyfind(FieldName,#field.name,Fields) of
 	false ->
 	    {error,{unknown_field,FieldName}};
@@ -303,12 +452,12 @@ normalize_({Filename,Name,Config}) ->
 		 ModuleName <- not_null_binary(Name),
 		 
 		 return(
-		   #config{name=ModuleName,
-			   fields=Fields2,
-			   options=Options2,
-			   filename=Filename,
-			   links = find_links(Fields2)
-			  }
+		   #model{name=ModuleName,
+			  fields=Fields2,
+			  options=Options2,
+			  filename=Filename,
+			  links = find_links(Fields2)
+			 }
 		  )
 		    ]),
     case Res of
@@ -407,8 +556,7 @@ parse_custom_options(CustomOptions,#field{record_options=RecOpts} = Field) ->
 	   Setter <- default(option_or_flag,set,CustomOptions,false),
 	   valid_variants(set,Setter,[true,false,custom]),
 	   HasRecord <- default(flag,record,CustomOptions,false),
-	   Init <- not_required(option,init,CustomOptions),
-	   or_validators(init,Init,[undefined,fun is_list/1]),
+	   Init <- default(flag,init,CustomOptions,false),
 	   return(
 	     Field#field{
 	       has_record = HasRecord,
@@ -457,20 +605,18 @@ set_link(_,_DBOptions) ->
 
 set_safe_delete(true,Options) ->
     Options2 = Options#options{
-		 safe_delete=true,
 		 deleted_flag_name = <<"deleted">>
 		},
     {ok,Options2};
 set_safe_delete(false,Options) ->
     Options2 = Options#options{
-	      safe_delete=false
+		 deleted_flag_name = undefined
 		},
     {ok,Options2};
 set_safe_delete(FlagName,Options) ->
     do([error_m ||
 	   ValidFlagName <- not_null_binary(FlagName),
 	   return(Options#options{
-		    safe_delete=true,
 		    deleted_flag_name = ValidFlagName
 		   })]).
 
@@ -657,9 +803,9 @@ valid_validators(_) ->
    Reason :: any().
 valid_variants(Name,Value,Variants) ->
     case dip_utils:contains(Value,Variants) of
-	exists ->
+	true ->
 	    ok;
-	not_exists ->
+	false ->
 	    Reason = dip_utils:template("Option: ~p mustbe in ~p",[Name,Variants]),
 	    {error,{wrong_format,Reason}}
     end.

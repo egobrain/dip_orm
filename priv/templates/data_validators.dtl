@@ -36,9 +36,9 @@ from_bin_proplist(Proplist,{{model_name|capfirst}}) ->
 %| {% for f in setter_fields %}
 %|    {% if f.user_can_write %}
 from_bin_proplist_({ <<"{{f.name}}">>, {{f.name|capfirst}} },{{model_name|capfirst}}) ->
+    Validator = validator({{f.name}}),
     Res = do([error_m ||
 		 Val <- dip_utils:valid_type({{f.type}},{{f.name|capfirst}}),
-		 Validator <- return(validator({{f.name}})),
 		 Validator(Val),
 		 return(Val)
 		    ]),
@@ -66,7 +66,7 @@ to_proplist({{model_name|capfirst}}) ->
      %\
      ,
 %|      {% endif %}
-     { {{f.name}} , {{f.name}}({{model_name|capfirst}}) }
+     { {{f.name}} , {{model_name|capfirst}}#{{model_name}}.{{f.name}} }
 %| {% endfor %}
     ].
 
@@ -90,7 +90,7 @@ validator({{f.name}}) ->
 			     ,
 			     %\    {% endif %}
 			     %\ {% endfor %}
-			    ],{{f.is_required}});     
+			    ],{{f.is_required}},{{f.is_write_only}});     
 %| {% endfor %}
 validator(_) ->
     {error,unknown_validator}.
@@ -98,7 +98,7 @@ validator(_) ->
 valid({{model_name|capfirst}}) ->
     Data = [
 	    %| {% for f in fields %}
-	    { {{ f.name }}, validator({{f.name}}), {{f.name}}({{model_name|capfirst}})}
+	    { {{ f.name }}, validator({{f.name}}), {{model_name|capfirst}}#{{model_name}}.{{f.name}} }
 	    %\    {% if not forloop.last %}
 	    ,
 	    %|    {% endif %}

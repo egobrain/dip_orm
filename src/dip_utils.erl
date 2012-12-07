@@ -19,22 +19,29 @@
 	 error_writer/1,
 
 	 state_error_writer/2,
-	 
+
 	 map_filter/2,
-	 contains/2
+	 contains/2,
+	 append_unique/2
 	]).
 
 -export([template/2]).
 
+-export([valid_type/2]).
+
 -export([
-	 get_validator/2,
-	 valid/1
+	 get_validator/3,
+	 valid/1,
+	 constructors_fold/3
 	]).
 
 %% ===================================================================
 %%% List
 %% ===================================================================
 
+-spec success_fold(Fun,Acc,ArgsList) -> {ok,Acc} | {error,Error} when
+								     Fun :: fun((Arg,Acc) -> {ok,Acc} | {error,Error}),
+									       ArgsList :: [Arg].
 success_fold(Fun,Acc,List) ->
     success_fold_(Fun,Acc,lists:reverse(List)).
 success_fold_(_Fun,Acc,[]) ->
@@ -49,6 +56,10 @@ success_fold_(Fun,Acc,[H|T]) ->
 
 
 
+-spec success_map(Fun,ArgsList) -> {ok,ResultList} | {error,Error} when
+								       Fun :: fun((Arg) -> {ok,Result} | {error,Error}),
+										 ArgsList :: [Arg],
+										 ResultList :: [Result].
 success_map(Fun,List) when is_list(List) ->
     MapFun = fun(Item,Acc) ->
 		     case Fun(Item) of
@@ -62,6 +73,10 @@ success_map(Fun,List) when is_list(List) ->
 
 
 
+-spec error_writer_fold(Fun,Acc,ArgsList) -> {ok,Acc} | {error,Errors} when
+									   Fun :: fun((Arg,Acc) -> {ok,Acc} | {error,Error}),
+										     ArgsList :: [Arg],
+										     Errors :: [Error].
 error_writer_fold(Fun,Acc,List) ->
     error_writer_fold_(Fun,Acc,lists:reverse(List),[]).
 error_writer_fold_(_Fun,Acc,[],[]) -> {ok,Acc};
@@ -74,6 +89,13 @@ error_writer_fold_(Fun,Acc,[H|T],Errors) ->
 	    error_writer_fold_(Fun,Acc,T,[Reason|Errors])
     end.
 
+
+
+-spec error_writer_map(Fun,ArgsList) -> {ok,ResultList} | {error,Errors} when
+									     Fun :: fun((Arg) -> {ok,Result} | {error,Error}),
+										       ArgsList :: [Arg],
+										       ResultList :: [Result],
+										       Errors :: [Error].
 error_writer_map(Fun,List) when is_list(List) ->
     MapFun = fun(Item,Acc) ->
 		     case Fun(Item) of
@@ -85,6 +107,9 @@ error_writer_map(Fun,List) when is_list(List) ->
 	     end,
     error_writer_fold(MapFun,[],List).
 
+-spec error_writer(List) -> ok | {error,Errors} when
+						    List :: {error,Error} | any(),
+			    Errors :: [Error].
 error_writer(List) ->
     error_writer(List,[]).
 error_writer([],[]) -> ok;
@@ -94,10 +119,13 @@ error_writer([{error,Reason}|Rest],Errors) ->
 error_writer([_|Rest],Errors) ->
     error_writer(Rest,Errors).
 
+
+
 -spec state_error_writer(State,Funs) -> {ok,{Results,State}} | {error,Errors} when
-    Funs :: fun((State) -> {ok,Result} | {error,Reason}),
-    Results :: [Result],
-    Errors :: [Reason].
+										  Funs :: [Fun],
+					Fun :: fun((State) -> {ok,Result} | {error,Reason}),
+						  Results :: [Result],
+						  Errors :: [Reason].
 state_error_writer(State,Funs) ->
     state_error_writer(State,Funs,[],[]).
 state_error_writer(State,[],Acc,[]) ->
@@ -110,10 +138,14 @@ state_error_writer(State,[F|Rest],Acc,Errors) ->
 	    state_error_writer(State2,Rest,[Result|Acc],Errors);
 	{error,Reason} ->
 	    state_error_writer(State,Rest,Acc,[Reason|Errors])
-    end.
-    
-			   
+    end. 
 
+
+
+-spec map_filter(Fun,ArgsList) -> {ok,ResultList} when
+						      Fun :: fun((Arg) -> {ok,Result} | any()),
+								ArgsList :: [Arg],
+								ResultList :: [Result].
 map_filter(Fun,List) when is_list(List) ->
     map_filter(Fun,List,[]).
 map_filter(_Fun,[],Acc) ->
@@ -125,33 +157,55 @@ map_filter(Fun,[Item|Rest],Acc) ->
     end.
 
 
+
+-spec contains(Value,List) -> boolean() when
+    Value :: any(),
+    List :: [any()].
 contains(_Option,[]) ->
-    not_exists;
+    false;
 contains(Option,[H|Rest]) ->
     case H of
-	Option -> exists;
+	Option -> true;
 	_ -> contains(Option,Rest)
     end.
-			 
+
+-spec append_unique(Value,List) -> List when
+    Value :: any(),
+    List :: [any()].
+append_unique(Value,List) ->
+    case contains(Value,List) of
+	true -> List;
+	false -> [Value|List]
+    end.
+
+
 %% ===================================================================
 %%% String
 %% ===================================================================
 
+-spec template(Template,Args) -> String when
+					    Template :: iolist(),
+				 Args :: [any()],
+				 String :: string().    
 template(Template,Args) ->
-    Template2 = lists:flatten(Template),
-    IOList = io_lib:format(Template2,Args),
+    Flatt = lists:flatten(Template),
+    IOList = io_lib:format(Flatt,Args),
     lists:flatten(IOList).
 
 %% ===================================================================
 %%% Intermodel Functions
 %% ===================================================================
 
-get_validator(Validators,IsRequired) ->
+get_validator(Validators,IsRequired,IsWriteOnly) ->
     fun(Element) ->
-	    case {IsRequired,Element} of
-		{true,undefined} ->
+	    case {IsRequired,Element,IsWriteOnly} of
+		{_,'$write_only_stumb$',true} ->
+		    ok;
+		{true,undefined,_} ->
 		    {error,required};
-		{false,undefined} ->
+		{false,undefined,_} ->
+		    ok;
+		{_,_,_} ->
 		    case dip_utils:success_fold(
 			   fun(Fun,_) -> Fun(Element) end,
 			   ok,
@@ -174,13 +228,63 @@ valid([{FieldName,ValidatorFun,Value}|Rest],Errors) ->
 		  {error,Reason} -> [{FieldName,Reason}|Errors]
 	      end,
     valid(Rest,Errors2).
-	    
 
+-spec constructors_fold(Args,Constractors,Model) -> Model when
+    Args :: [Arg],
+    Constractors :: fun((Arg,Model) -> Model).
+constructors_fold([],[],Model) ->
+    Model;
+constructors_fold([Arg|RestArgs],[ArgFun|RestFuns],Model) ->
+    NewModel = ArgFun(Arg,Model),
+    constructors_fold(RestArgs,RestFuns,NewModel).
+  
+
+-spec valid_type(Type,Value) -> {ok,ResultValue} | {error,Reason} when
+    Type :: binary | non_neg_integer | integer,
+    Value :: any(),
+    ResultValue :: any(),
+    Reason :: wrong_format.
+valid_type(integer, Int) ->
+    if
+	is_integer(Int) ->
+	    {ok,Int};
+	is_binary(Int) ->
+	    case string:to_integer(binary_to_list(Int)) of
+		{Res,[]} -> {ok,Res};
+		_ -> {error,wrong_format}
+	    end;
+	is_list(Int) ->
+	    case string:to_integer(Int) of
+		{Res,[]} -> {ok,Res};
+		_ -> {error,wrong_format}
+	    end;
+	true ->
+	    {error,wrong_format}
+    end;
+valid_type(non_neg_integer,Int) ->
+    case valid_type(integer,Int) of
+	{ok,Res} ->
+	    if Res < 0 -> {error,wrong_format};
+	       true -> {ok,Res}
+	    end;
+	_ -> {error,wrong_format}
+    end;    
+valid_type(binary,Bin) ->
+    if
+    	is_binary(Bin) ->
+	    {ok,Bin};
+	is_list(Bin) ->
+	    {ok,list_to_binary(Bin)};
+	true ->
+	    {error,wrong_format}
+    end.
+    
+		       
 
 %% ===================================================================
 %%% Tests
 %% ===================================================================
-	
+
 -ifdef(TEST).
 -include_lib("eunit/include/eunit.hrl").
 

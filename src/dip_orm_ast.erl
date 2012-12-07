@@ -10,7 +10,9 @@
 
 -export([
 	 string_to_expr/1,
-	 string_to_ast/1
+	 string_to_ast/1,
+
+	 value_to_ast/1
 	]).
 
 -export([
@@ -60,6 +62,10 @@ export(List) ->
 		 erl_syntax:integer(Arity)) || {Name,Arity} <- List],
     ExportAst = erl_syntax:attribute(erl_syntax:atom(export),[erl_syntax:list(Exports)]),
     erl_syntax:revert(ExportAst).
+
+value_to_ast(Value) ->
+    Abstract = erl_syntax:abstract(Value),
+    erl_syntax:revert(Abstract).
 
 %% ===================================================================
 %%% Raw

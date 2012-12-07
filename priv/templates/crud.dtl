@@ -49,7 +49,7 @@ save({{model_name|capfirst}},ChangedFields,true) ->
       insert({{model}}),
       values(ChangedFields)
      );
-save({{model_name|capfirst}},ChangedFields,field) ->
+save({{model_name|capfirst}},ChangedFields,false) ->
     dip_orm(
       update({{model}}),
       values(ChangedFields),
@@ -79,7 +79,7 @@ delete({{model_name|capfirst}}) ->
 	{{index_field.name}} == {{model_name|capfirst}}#{{model_name}}.{{index_field.name}}
 	%\ {% endfor %}
        )).
-
+%| {#
 is_new({{model_name|capfirst}}) ->
     %\ {% for index_field in index_fields %}
     %|     {% if not forloop.first %}
@@ -89,3 +89,4 @@ is_new({{model_name|capfirst}}) ->
       {{model_name|capfirst}}#{{model_name}}.{{index_field.name}} =:= undefined
     %\ {% endfor %}
 	.
+%| #}

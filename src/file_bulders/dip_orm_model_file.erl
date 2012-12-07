@@ -13,13 +13,15 @@
 
 -export([write/2]).
 
+-export([module_atom/1]).
+
 -define(PREFIX,"db_").
 
 %% ===================================================================
 %%% API
 %% ===================================================================
 
-write(#config{name=Name} = Config, #global_config{output_src_folder=OutFolder}) ->
+write(#model{name=Name} = Config, #global_config{output_src_folder=OutFolder}) ->
     ModuleName = module_atom(Name),
     Content = [
 	       dip_orm_ast:module(ModuleName),
@@ -31,6 +33,8 @@ write(#config{name=Name} = Config, #global_config{output_src_folder=OutFolder}) 
 
 	       dip_orm_ast:spacer("TYPES"),
 	       render_types(Config),
+
+	       render_dtw(Config),
 	       
 	       dip_orm_ast:spacer("Exports"),
 	       dip_orm_ast:comment("Database interection"),
@@ -48,11 +52,15 @@ write(#config{name=Name} = Config, #global_config{output_src_folder=OutFolder}) 
 				   {from_proplist,2},
 				   {from_bin_proplist,1},
 				   {from_bin_proplist,2},
-				   {to_proplist,1}
+				   {to_proplist,1},
+
+
+				   {field_constructor,1} % REMOVE THIS !!!
 				  ]),
 	       dip_orm_ast:export([
 				   {valid,1},
-				   {validator,1}
+				   {validator,1},
+				   {constructor,1}
 				  ]),
 	       
 	       dip_orm_ast:spacer("Getters and setters"),
@@ -77,13 +85,24 @@ write(#config{name=Name} = Config, #global_config{output_src_folder=OutFolder}) 
 %%% Types
 %% ===================================================================
 
-render_types(#config{name=Name,fields=Fields}) ->
+render_types(#model{name=Name,fields=Fields}) ->
     ModuleName = module_atom(Name),
     RecordFields = get_types_fields(Fields),
+    RequiredFields = get_required_fields(Fields),
     {ok,Content} = db_types_dtl:render([{model_name,ModuleName},
-					{fields,RecordFields}
+					{fields,RecordFields},
+					{required_fields,RequiredFields}
 				       ]),
     dip_orm_ast:raw(Content).
+
+get_required_fields(Fields) ->
+    dip_utils:map_filter(fun get_required_field/1,Fields).
+get_required_field(#field{name=Name,
+			   has_record=true,
+			   is_required=true
+			  }) ->
+    {ok,[{name,Name}]};
+get_required_field(_) -> filtered.
 
 get_types_fields(Fields) ->
     dip_utils:map_filter(fun get_types_field/1,Fields).
@@ -91,13 +110,17 @@ get_types_field(#field{name=Name,
 		       has_record=true,
 		       record_options=#record_options{
 			 default_value=Default,
-			 type=Type
+			 type=Type,
+			 mode=#access_mode{
+			   sr=Sr
+			  }
 			}
 		      }) ->
     {ok,[
 	 {name,Name},
 	 {default,Default},
-	 {type,type_to_string(Type)}
+	 {type,type_to_string(Type)},
+	 {system_read,Sr}
 	]};
 get_types_field(_) -> filtered.
 
@@ -105,7 +128,7 @@ get_types_field(_) -> filtered.
 %%% Exports
 %% ===================================================================
 
-export_getters_and_setters(#config{fields=Fields}) ->
+export_getters_and_setters(#model{fields=Fields}) ->
     Exports = get_exports(Fields,[]),
     dip_orm_ast:export(Exports).
 get_exports([],Acc) ->
@@ -135,7 +158,7 @@ get_exports([#field{name=Name,
 %%% Getters and setters
 %% ===================================================================
     
-render_getters_and_setters(#config{name=Name,fields=Fields}) ->
+render_getters_and_setters(#model{name=Name,fields=Fields}) ->
     ModuleName = module_atom(Name),
     RecordFields = get_getters_and_setters_fields(Fields),
     {ok,Content} = getters_and_setters_dtl:render([{model_name,atom_to_list(ModuleName)},
@@ -172,7 +195,7 @@ get_getters_and_setters_field(_) -> filtered.
 %%% CRUD. DB operations
 %% ===================================================================
 
-render_crud(#config{name=Name,fields=Fields}) ->
+render_crud(#model{name=Name,fields=Fields}) ->
     ModuleName = atom_to_list(module_atom(Name)),
     IndexFields = get_index_fields(Fields),
     {ok,Content} =  crud_dtl:render([{model,binary_to_atom(Name)},
@@ -195,7 +218,7 @@ get_index_field(#field{name=Name,
 	]};
 get_index_field(_) -> filtered.
 
-index_fields_count(#config{fields=Fields}) ->
+index_fields_count(#model{fields=Fields}) ->
     FoldFun = fun(#field{has_record=true,
 			 is_index=true,
 			 is_in_database=true}, Acc) -> Acc+1;
@@ -207,7 +230,7 @@ index_fields_count(#config{fields=Fields}) ->
 %%% Validators/Data setters
 %% ===================================================================
 
-render_data_validators(#config{name=Name,fields=Fields}) ->
+render_data_validators(#model{name=Name,fields=Fields}) ->
     ModuleName = atom_to_list(module_atom(Name)),
     ValidatorFields = get_validator_fields(Fields),
     SetterFields = get_setter_fields(Fields),
@@ -222,17 +245,24 @@ render_data_validators(#config{name=Name,fields=Fields}) ->
 get_validator_fields(Fields) ->
     dip_utils:map_filter(fun get_validator_field/1,Fields).
 get_validator_field(#field{name=Name,
-			    has_record=true,
+			   has_record=true,
 			   is_required=IsRequired,
-			    record_options=#record_options{
-			      validators=Validators
-			     }}) ->
+			   record_options=#record_options{
+			     validators=Validators,
+			           mode=#access_mode{
+				     sr=Sr,
+				     sw=Sw
+				    }
+			    }}) ->
     Validators2 = [validator_to_string(V) || V <- Validators],
+    IsWriteOnly = {Sr,Sw} =:= {false,true},
     {ok,[
 	 {name,Name},
 	 {is_required,IsRequired},
-	 {validators,Validators2}
-	]}.
+	 {validators,Validators2},
+	 {is_write_only,IsWriteOnly}
+	]};
+get_validator_field(_) -> filtered.
 
 get_setter_fields(Fields) ->
     dip_utils:map_filter(fun get_setter_field/1,Fields).
@@ -266,19 +296,95 @@ get_user_can_read_field(_) -> filtered.
 %%% Internal functoins
 %% ===================================================================
 
-render_internal_functions(#config{name=Name,fields=Fields}) ->
+render_internal_functions(#model{name=Name,fields=Fields}) ->
     ModuleName = atom_to_list(module_atom(Name)),
     InternalFields = get_internal_function_fields(Fields),
+    CustomInitFields = get_custom_init_fields(Fields),
+    WriteOnlyFields = get_write_only_fields(Fields),
     {ok,Content} = internal_functions_dtl:render([
 						  {model_name,ModuleName},
-						  {fields,InternalFields}
+						  {fields,InternalFields},
+						  {custom_init_fields,CustomInitFields},
+						  {write_only_fields,WriteOnlyFields}
 						 ]),
     dip_orm_ast:raw(Content).
+
+get_write_only_fields(Fields) ->
+    dip_utils:map_filter(fun get_write_only_field/1,Fields).
+get_write_only_field(#field{name=Name,
+			    is_in_database=true,
+			    record_options=#record_options{
+			      mode=#access_mode{
+				sw=true,
+				sr=false
+			       }}}) ->
+    {ok,[{name,Name}]};
+get_write_only_field(_) -> filtered.
+    
 get_internal_function_fields(Fields) ->
     dip_utils:map_filter(fun get_internal_function_field/1,Fields).
-get_internal_function_field(#field{name=Name}) ->
-    {ok,[{name,Name}]};
+get_internal_function_field(#field{name=Name,
+				   is_in_database=true,
+				   db_options=#db_options{
+				     type=Db_type
+				    }}) ->
+    {ok,[
+	 {name,Name},
+	 {db_type,Db_type}
+	]};
 get_internal_function_field(_) -> filtered.
+
+
+get_custom_init_fields(Fields) ->
+    dip_utils:map_filter(fun get_custom_init_field/1,Fields).
+get_custom_init_field(#field{name=Name,
+			     has_record=true,
+			     record_options=#record_options{
+			       init=true
+			      }}) ->
+    {ok,[{name,Name}]};
+get_custom_init_field(_) -> filtered.
+
+%% ===================================================================
+%%% Internal helpers
+%% ===================================================================
+
+render_dtw(#model{name=Name,fields=Fields,
+		  options=#options{dtw=true}} = Config) ->
+    
+    Table = dip_orm_configs:model(db_table,Config),
+    Db_fields = get_db_fields(Fields),
+    FieldsStr = get_db_str_fields(Table,Fields),
+    {ok,Content} =  dtw_dtl:render([{fields_str,dip_utils:template("~s",[string:join(FieldsStr,",")])},
+				    % {safe_delete_str,SafeDeleteStr},
+				    {fields,Db_fields}
+				    ]),
+    dip_orm_ast:raw(Content);
+render_dtw(#model{options=#options{dtw=false}} = Config) ->
+    dip_orm_ast:raw("").
+
+get_db_fields(Fields) ->
+    dip_utils:map_filter(fun get_db_field/1,Fields).
+get_db_field(#field{name=Name,
+		    is_in_database=true} = Field)  ->
+    Db_alias = dip_orm_configs:field(db_alias,Field),
+    Db_type = dip_orm_configs:field(db_type,Field),
+    {ok,[{name,Name},
+	 {db_alias,Db_alias},
+	 {db_type,Db_type}]};
+get_db_field(_) -> filtered.
+
+
+get_db_str_fields(TableName,Fields) ->
+    TableEsc = esc(TableName),
+    FoldFun = fun(#field{is_in_database=true} = Field)  ->
+		      Db_alias = dip_orm_configs:field(db_alias,Field),
+		      {ok,[TableEsc,".",esc(Db_alias)]};
+		 (_) -> filtered
+	      end,
+    dip_utils:map_filter(FoldFun,Fields).
+		      
+			     
 
 %% ===================================================================
 %%% Internal helpers
@@ -320,5 +426,8 @@ auto(stop) ->
 	"%% <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<\n"
 	"%% __autoend__\n",
     dip_orm_ast:raw(Content).
+
+esc(Str) ->
+    ["\\\"",Str,"\\\""].
 
 

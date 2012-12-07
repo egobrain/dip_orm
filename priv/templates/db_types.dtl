@@ -1,5 +1,6 @@
 %% -*- erlang -*-
 -record({{model_name}},{
+	  '$is_new$' = true :: boolean(),
 	  %| {% for f in fields %}
 	  %|	     {% if not forloop.first %}
 	  %\
@@ -10,7 +11,7 @@
 	  = {{f.default}}
 	  %\	     {% endifnotequal %}
 	  :: {{ f.type }} | undefined
-	  %\	     {% if not f.sr and f.sw and not f.custom %}
+	  %\	     {% if not f.system_read %}
 	  | '$$write_only_stumb$$'
 	  %\         {% endif %}
 	  ,
@@ -34,14 +35,18 @@
 %\    {% endif %}
 %\ {% endfor %}
 .
-% {# -type required_field() ::
-% %\ {% for f in required_fields %}
-% {{f.name}}
-% %\    {% if not forloop.last %}
-% |
-% %\    {% endif %}
-% %\ {% endfor %} #}
-% .
+-type required_field() ::
+%\ {% if required_fields %}
+%\    {% for f in required_fields %}
+{{f.name}}
+%\       {% if not forloop.last %}
+|
+%\       {% endif %}
+%\    {% endfor %}
+% {% else %}
+undefined. % There is no required fields in this model
+%\ {% endif %}
+.
 -type field_type() ::
 %\ {% for f in fields %}
 {{ f.type }}

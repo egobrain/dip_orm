@@ -6,7 +6,8 @@ get_changed_fields({{model_name|capfirst}}) ->
 		%| {% for f in fields %}
 		{ {{f.name}},
 		  {{model_name|capfirst}}#{{model_name}}.{{f.name}}_changed,
-		  {{model_name|capfirst}}#{{model_name}}.{{f.name}} }
+		  {{model_name|capfirst}}#{{model_name}}.{{f.name}}
+		 }
 		%\    {% if not forloop.last %}
 		,
 		%|    {% endif %}
@@ -21,4 +22,48 @@ get_changed_fields({{model_name|capfirst}}) ->
 	[] -> {error,not_modified};
 	_ -> {ok,Res}
     end.
+
+
+%| {% for f in fields %}
+field_constructor({{f.name}}) ->
+    fun(Binary,{{model_name|capfirst}}) ->
+	    Value = dip_db:binary_to_{{f.db_type}}(Binary),
+	    {{model_name|capfirst}}#{{model_name}}{ {{f.name}} = Value }
+    end
+%|    {% if not forloop.last %}
+%\
+;
+%|    {% endif %}
+%| {% endfor %}
+%\
+.
+
+constructor(Fields) ->
+    Constractors = [field_constructor(Field) || Field <- Fields],
+    fun(Tuple) ->
+	    Model = #{{model_name}}{
+	      %| {% for f in write_only_fields %}
+	      {{f.name}} = '$write_only_stumb$',
+	      %| {% endfor %}
+	      '$is_new$'=false
+	     },
+	    ArgList = tuple_to_list(Tuple),
+	    %| {% if custom_init_fields %}
+	    Res = dip_utils:constructors_fold(ArgList,Constractors,Model),
+	    InitFuns = [
+	    %|    {% for ci in custom_init_fields %}
+			fun(M) -> M#{{model_name}}{ {{ci.name}} = {{ci.name}}_init(M) } end
+			%\ {% if not forloop.last %}
+			,
+			%| {% endif %}
+	    %|    {% endfor %}
+		       ],
+	    FoldFun = fun(Fun,M) -> Fun(M) end,
+	    lists:foldl(FoldFun,Res,InitFuns)
+	    %| {% else %}
+	    dip_utils:constructors_fold(ArgList,Constractors,Model)
+	    %| {% endif %}
+    end.
+  
+
 
