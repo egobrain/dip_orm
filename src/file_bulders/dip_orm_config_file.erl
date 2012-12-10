@@ -17,17 +17,22 @@
 %%% API
 %% ===================================================================
 
-write(ModuleName,Config,
+write(ModuleName,Models,
       #global_config{output_src_folder=OutFolder}) ->
     Content = [
 	       dip_orm_ast:module(ModuleName),
 	       dip_orm_ast:export([
 				   {config,0},
-				   {parse_transform,2}
+				   {parse_transform,2},
+				   {model_config,1},
+				   {db_model,1}
 				  ]),
 	       dip_orm_ast:spacer("API"),
 	       parse_transform_function(),
-	       config_function(Config)
+	       models(Models),
+	       config_function(Models),
+	       dip_orm_ast:spacer("DB models"),
+	       db_models(Models)
 	      ],
     ResultContent = dip_orm_ast:pretty_print(Content),
     dip_orm_file:write_module(ModuleName,OutFolder,ResultContent).
@@ -69,3 +74,49 @@ parse_transform_function() ->
 					 ], none,
 					 [FunctionBody])]),
     erl_syntax:revert(FunctionAST).
+
+db_models(Models) ->    
+    erl_syntax:function(erl_syntax:atom(db_model),
+			[erl_syntax:clause(
+			   [erl_syntax:atom(model_name(Model))],
+			   none,
+			   [erl_syntax:tuple([erl_syntax:atom(ok),
+					      erl_syntax:atom(db_model_name(Model))])]
+			  ) || Model <- Models]++
+			[erl_syntax:clause(
+			   [erl_syntax:variable("Model")],
+			   none,
+			   [erl_syntax:tuple([erl_syntax:atom(error),
+					      erl_syntax:tuple([
+								erl_syntax:variable("Model"),
+								erl_syntax:atom(unknown)
+							       ])]
+					   )])]).
+
+    
+db_model_name(Model) ->    
+    ModelNameBin = dip_orm_configs:model(name,Model),
+    DbModelNameBin = <<"db_",ModelNameBin/binary>>,
+    binary_to_list(DbModelNameBin).
+
+model_name(Model) ->
+    ModelNameBin = dip_orm_configs:model(name,Model),
+    binary_to_list(ModelNameBin).
+
+models(Models) ->
+    erl_syntax:function(erl_syntax:atom(model_config),
+			[erl_syntax:clause(
+			   [erl_syntax:atom(model_name(Model))],
+			   none,
+			   [erl_syntax:tuple([erl_syntax:atom(ok),
+					      erl_syntax:abstract(Model)])]
+			   ) || Model <- Models] ++
+			[erl_syntax:clause(
+			   [erl_syntax:variable("Model")],
+			   none,
+			   [erl_syntax:tuple([erl_syntax:atom(error),
+					      erl_syntax:tuple([
+								erl_syntax:variable("Model"),
+								erl_syntax:atom(unknown)
+							       ])]
+					    )])]).

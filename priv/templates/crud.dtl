@@ -33,6 +33,24 @@ get(
 	%\ {% endfor %}
 	)).
 
+-spec find(Request) -> {ok, Result} | {error,Reason} when
+    Request :: {Where,Order,Limit,Offset},
+    Where :: any(),
+    Order :: field() | {field(), asc | desc},
+    Limit :: non_neg_integer(),
+    Offset :: non_neg_integer(),
+    Result :: [{{model_name}}()],
+    Reason :: db_error.
+find({_Where,_Order,_Limit,_Offset}) ->
+    % dip_orm(
+    %   select({{model}}),
+    %   where(Where),
+    %   order_by(Order),
+    %   limit(Limit),
+    %   offset(Offset)
+    %  ).
+    ok.
+
 
 % @doc Save object in database and check required fields.
 -spec save({{model_name|capfirst}}) -> {ok,{{model_name|capfirst}}} | {error,Reason} when
@@ -79,14 +97,4 @@ delete({{model_name|capfirst}}) ->
 	{{index_field.name}} == {{model_name|capfirst}}#{{model_name}}.{{index_field.name}}
 	%\ {% endfor %}
        )).
-%| {#
-is_new({{model_name|capfirst}}) ->
-    %\ {% for index_field in index_fields %}
-    %|     {% if not forloop.first %}
-    %\
-    orelse
-    %|     {% endif %}
-      {{model_name|capfirst}}#{{model_name}}.{{index_field.name}} =:= undefined
-    %\ {% endfor %}
-	.
-%| #}
+

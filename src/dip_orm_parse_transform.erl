@@ -23,12 +23,12 @@
 	  type :: select | insert | update | delete,
 	  target_model :: dip_orm_config:models(),
 	  configs :: [dip_orm_config:models()],
-	  where,
-	  order_by :: { dip_orm_configs:model_name(),
-		       dip_orm_configs:field_name(),
-		       asc | desc },
-	  limit,
-	  offset,
+	  where = ast(atom,undefined),
+	  order_by = ast(atom,undefined) :: { dip_orm_configs:model_name(),
+					      dip_orm_configs:field_name(),
+					      asc | desc },
+	  limit = ast(atom,undefined),
+	  offset = ast(atom,undefined),
 	  values,
 	  links = []
 	 }).
@@ -176,10 +176,10 @@ set_model(Ast,_Acc) ->
 set_order_by([{call,_Line,{atom,Line2,order_by},OrderAst}|RestArgs],Req) ->
     case OrderAst of
 	[FieldAst] ->
-	    set_order_by(FieldAst,asc,Req,RestArgs);
-	[FieldAst,{atom,_,Order}] when Order =:= asc orelse
-				       Order =:= desc ->
-	    set_order_by(FieldAst,Order,Req,RestArgs);
+	    set_order_by(ast(tuple,[FieldAst,ast(atom,asc)]),Req,RestArgs);
+	[FieldAst,{atom,_,Order} = OrderTypeAst] when Order =:= asc orelse
+						      Order =:= desc ->
+	    set_order_by(ast(tuple,[FieldAst,OrderTypeAst]),Req,RestArgs);
 	[_,OrderAst] ->
 	    Reason = "Order can be set 'asc' or 'desc' ",
 	    ast_error(OrderAst,Reason);
@@ -193,15 +193,15 @@ set_order_by([{call,_Line,{atom,Line2,order_by},OrderAst}|RestArgs],Req) ->
 set_order_by(Ast,Req) ->
     {ok,{Ast,Req}}.
 
-set_order_by(FieldAst,Order,Req,RestArgs) ->
-    	    do([error_m || 
-		   {field,ModelName,Field} = F <- transform_field(FieldAst,Req),
-		   Req2 <- set_link(F,Req),
-		   return({RestArgs,
-			   Req2#request{
-			    order_by = {ModelName,dip_orm_configs:field(name,Field),Order}
-			    }})
-		      ]).
+set_order_by(FieldAst,Req,RestArgs) ->
+    do([error_m || 
+	   F <- transform_field(FieldAst,Req),
+	   Req2 <- set_link(F,Req),
+	   return({RestArgs,
+		   Req2#request{
+		     order_by = FieldAst
+		    }})
+	      ]).
 
 %% ===================================================================
 
@@ -302,9 +302,9 @@ transform(Ast,_Req) ->
 
 transform_field({atom,Line,FieldName},Req) ->
     do([error_m ||
-	   {ModelName,Field} <- wel(Line,
+	   {Model,Field} <- wel(Line,
 				    get_model_for_field(FieldName,Req)),
-	   return({field,ModelName,Field})]);
+	   return({field,Model,Field})]);
 transform_field({tuple,_Line,[{atom,Line2,ModelNameAtom},{atom,Line3,FieldName}]},
 		#request{configs=Configs}) ->
     ModelName = atom_to_binary(ModelNameAtom),
@@ -313,7 +313,7 @@ transform_field({tuple,_Line,[{atom,Line2,ModelNameAtom},{atom,Line3,FieldName}]
 			dip_orm_configs:find_model(ModelName,Configs)),
 	   Field <- wel(Line3,
 			dip_orm_configs:get_model_field(FieldName,Model)),
-	   return({field,ModelName,Field})
+	   return({field,Model,Field})
 	      ]);
 transform_field(Ast,_Req) ->
     ast_error(Ast,"Syntax error in field description").
@@ -327,32 +327,32 @@ transform_op(Op,Line,Field,Value,Req) ->
 	     return({{Op,Field2,Value2},Req2})]).
 
 transform_value(Value) ->
-    {ok,Value}.
+    {ok,{ast,Value}}.
 
 
 get_model_for_field(FieldName,#request{target_model=Model}) ->
     case dip_orm_configs:get_model_field(FieldName,Model) of
 	{ok,Field} ->
-	    SelectModelName = dip_orm_configs:model(name,Model),
-	    {ok,{SelectModelName,Field}};
+	    {ok,{Model,Field}};
 	{error,_Reason} ->
 	    Reason = dip_utils:template("Unknown field name: ~p",[FieldName]),
 	    {error,Reason}
     end.
 
 
-set_link({field,ModelName,_Field},#request{target_model=Model,
+set_link({field,Model,_Field},#request{target_model=TargetModel,
 					   links=Links,
 					   configs=Configs
 					  } = Req) ->
-    SelectModelName = dip_orm_configs:model(name,Model),
-    case SelectModelName =:= ModelName of
+    TargetModelName = dip_orm_configs:model(name,TargetModel),
+    ModelName = dip_orm_configs:model(name,Model),
+    case TargetModelName =:= ModelName of
 	true ->
 	    {ok,Req};
 	false ->
 	    do([error_m ||
 		   RemoteModel <- dip_orm_configs:find_model(ModelName,Configs),
-		   Link <- dip_orm_configs:find_link(Model,RemoteModel),
+		   Link <- dip_orm_configs:find_link(TargetModel,RemoteModel),
 		   return(
 		     Req#request{links=dip_utils:append_unique(Link,Links)})
 		      ])
@@ -360,230 +360,92 @@ set_link({field,ModelName,_Field},#request{target_model=Model,
 
 %% ===================================================================
 
+where_to_ast({field,Model,Field}) ->
+    ModelName = binary_to_list(dip_orm_configs:model(name,Model)),
+    FieldName = binary_to_list(dip_orm_configs:field(name,Field)),
+    ast(tuple,[
+	       ast(atom,ModelName),
+	       ast(atom,FieldName)
+	      ]);
+where_to_ast({Op,Left,Right}) ->
+    ast(tuple,[
+	       ast(atom,Op),
+	       where_to_ast(Left),
+	       where_to_ast(Right)
+	      ]);
+where_to_ast({ast,Ast}) -> Ast.
+
 request_to_sql(#request{type=select,
 			target_model = Model,
 			where = Where,
-			order_by=Order,
-			limit = Limit,
-			offset = Offset,
-			links = Links}) ->
-    Fields = dip_orm_configs:model(db_fields,Model),
-    TableName = dip_orm_configs:model(db_table,Model),
+			order_by=OrderAst,
+			limit = LimitAst,
+			offset = OffsetAst,
+			links = _Links}) ->
     
-    FieldsStr = string:join([[esc(TableName),".",esc(dip_orm_configs:field(name,F))] || F <- Fields],","),
-
-    SQLHeader = ["SELECT ",FieldsStr, " FROM ",esc(TableName)],
-    {WhereSQL,Args} = fold_where(Where),
-    WhereSQL2 = append_delete_flag(WhereSQL,Model),
-    WhereSQL3 = case WhereSQL2 of
-		    [] -> [];
-		    _ ->
-			[" WHERE ",WhereSQL2]
-		end,
-    JoinsSQL = [dip_orm_configs:link_to_join(Link) || Link <- Links],
-    OrderSQL = case Order of
-		   undefined -> [];
-		   {OrderModelName,OrderFieldName,OrderType} ->
-		       [" ORDER BY ",esc(OrderModelName),".",esc(OrderFieldName)," ",order_to_string(OrderType)]
-	       end,
-    {LimitSQL,Args2} = case Limit of
-			   undefined -> {[],Args};
-			   _ -> {" LIMIT ~s ",Args++[{tuple,0,[{atom,0,integer},Limit]}]}
-		       end,
-    {OffsetSQL,Args3} = case Offset of
-			    undefined -> {[],Args2};
-			    _ -> {[" OFFSET ~s "],Args2++[{tuple,0,[{atom,0,integer},Offset]}]}
-			end,
-
-    SQL = [SQLHeader,JoinsSQL,WhereSQL3,OrderSQL,LimitSQL,OffsetSQL],
-    
-    % Rest = ast(function,dip_utils,map_each_sql_row,
-    % 	       [
-    % 		ast(function,dip_db,q,
-    % 		    [
-    % 		     ast(string,dip_utils:template("~s",[SQL])),
-    % 		     ast(list,lists:flatten([Args3]))
-    % 		    ]),
-    % 		ast(function,
-    % 		    dip_orm_model_file:module_atom(dip_orm_configs:model(name,Model)),
-    % 		    constructor,
-    % 		    [
-    % 		     ast(list,[ast(atom,binary_to_list(dip_orm_configs:field(name,F))) || F <- Fields])
-    % 		    ])
-    % 	       ]),
+    % select(ModelName,Where,Order,Limit,Offset)
+    TargetModelName = binary_to_list(dip_orm_configs:model(name,Model)),
+    WhereAst = where_to_ast(Where),
     Rest = ast(function,dip_orm_db,select,
 	       [
-		ast(string,dip_utils:template("~s",[SQL])),
-		ast(list,lists:flatten([Args3])),
-		ast(function,
-		    dip_orm_model_file:module_atom(dip_orm_configs:model(name,Model)),
-		    constructor,
-		    [
-		     ast(list,[ast(atom,binary_to_list(dip_orm_configs:field(name,F))) || F <- Fields])
-		    ])
+		ast(atom,TargetModelName),
+		WhereAst,
+		OrderAst,
+		LimitAst,
+		OffsetAst
 	       ]),
     {ok,Rest};
+
+
 
 request_to_sql(#request{type=update,
 			target_model = Model,
 			where = Where,
-			values = Values,
-			links = Links}) ->
-    Fields = dip_orm_configs:model(db_fields,Model),
-    TableName = dip_orm_configs:model(db_table,Model),
-    
-    FieldsStr = string:join([[esc(TableName),".",esc(dip_orm_configs:field(name,F))] || F <- Fields],","),
-
-    SQLHeader = ["UPDATE ",esc(TableName), " SET "],
-    {WhereSQL,Args} = fold_where(Where),
-    WhereSQL2 = append_delete_flag(WhereSQL,Model),
-    WhereSQL3 = case WhereSQL2 of
-		    [] -> [];
-		    _ ->
-			[" WHERE ",WhereSQL2]
-		end,
-    JoinsSQL = [dip_orm_configs:link_to_join(Link) || Link <- Links],
-
-    ReturningSQL = [" RETURNING ",FieldsStr],
-    SQLTail = [JoinsSQL,WhereSQL3,ReturningSQL],
-    
+			values = ValuesAst,
+			links = _Links}) ->
+    TargetModelName = binary_to_list(dip_orm_configs:model(name,Model)),
+    WhereAst = where_to_ast(Where),
     Rest = ast(function,dip_orm_db,update,
 	       [
-		ast(string,dip_utils:template("~s",[SQLHeader])),
-		ast(tuple,
-		    [
-		     dip_orm_ast:value_to_ast(Model),
-		     Values
-		    ]),
-		ast(string,dip_utils:template("~s",[SQLTail])),
-		ast(list,lists:flatten([Args])),
-		ast(function,
-		    dip_orm_model_file:module_atom(dip_orm_configs:model(name,Model)),
-		    constructor,
-		    [
-		     ast(list,[ast(atom,binary_to_list(dip_orm_configs:field(name,F))) || F <- Fields])
-		    ])
+		ast(atom,TargetModelName),
+		ValuesAst,
+		WhereAst
 	       ]),
     {ok,Rest};
 
 request_to_sql(#request{type=insert,
 			target_model = Model,
-			values = Values}) ->
-    Fields = dip_orm_configs:model(db_fields,Model),
-    TableName = dip_orm_configs:model(db_table,Model),
-    
-    FieldsStr = string:join([[esc(TableName),".",esc(dip_orm_configs:field(name,F))] || F <- Fields],","),
-
-    SQLHeader = ["INSERT INTO  ",esc(TableName), "("],
-    SQLMiddle = ") VALUES (",
-    SQLTail = [") "," RETURNING ",FieldsStr],
-    
+			values = ValuesAst}) ->
+    TargetModelName = binary_to_list(dip_orm_configs:model(name,Model)),
     Rest = ast(function,dip_orm_db,insert,
 	       [
-		ast(string,dip_utils:template("~s",[SQLHeader])),
-		ast(string,dip_utils:template("~s",[SQLMiddle])),
-		ast(tuple,
-		    [
-		     dip_orm_ast:value_to_ast(Model),
-		     Values
-		    ]),
-		ast(string,dip_utils:template("~s",[SQLTail])),
-		ast(function,
-		    dip_orm_model_file:module_atom(dip_orm_configs:model(name,Model)),
-		    constructor,
-		    [
-		     ast(list,[ast(atom,binary_to_list(dip_orm_configs:field(name,F))) || F <- Fields])
-		    ])
+		ast(atom,TargetModelName),
+		ValuesAst
 	       ]),
     {ok,Rest};
 
 request_to_sql(#request{type=delete,
 			target_model = Model,
 			where = Where,
-			links = Links}) ->
-    TableName = dip_orm_configs:model(db_table,Model),
-
-    {WhereSQL,Args} = fold_where(Where),
-    WhereSQL2 = append_delete_flag(WhereSQL,Model),
-    WhereSQL3 = case WhereSQL2 of
-		    [] -> [];
-		    _ ->
-			[" WHERE ",WhereSQL2]
-		end,
-    JoinsSQL = [dip_orm_configs:link_to_join(Link) || Link <- Links],
-
-    SQLTail = [JoinsSQL,WhereSQL3],
-
-    SQLHeader = case dip_orm_configs:model(safe_delete,Model) of
-		    undefined ->
-			["DELETE FROM ",esc(TableName)];
-		    FieldName ->
-			["UPDATE ",esc(TableName)," SET ",esc(TableName),".",esc(FieldName)," = TRUE "]
-		end,
-    
-    SQL = [SQLHeader,SQLTail],
+			links = _Links}) ->
+    TargetModelName = binary_to_list(dip_orm_configs:model(name,Model)),
+    WhereAst = where_to_ast(Where),
     Rest = ast(function,dip_orm_db,delete,
 	       [
-		ast(string,dip_utils:template("~s",[SQL])),
-		ast(list,lists:flatten([Args]))
+		ast(atom,TargetModelName),
+		WhereAst
 	       ]),
     {ok,Rest};
 
 request_to_sql(_) ->
     {error,"ORM System Erorr"}.
 
-order_to_string(asc) -> "ASC";
-order_to_string(desc) -> "DESC".
-
-append_delete_flag(WhereSQL,Model) ->
-    case dip_orm_configs:model(safe_delete,Model) of
-	undefined ->
-	    WhereSQL;
-	DeletedFlag ->
-	    TableName = dip_orm_configs:model(db_table,Model),
-	    SQL = [esc(TableName),".",esc(DeletedFlag)," = FALSE"],
-	    case WhereSQL of
-		[] -> SQL;
-		_ -> [WhereSQL," AND ",SQL]
-	    end
-    end.
- 		    
-
-fold_where(undefined) ->
-    {[],[]};
-fold_where({'andalso',Left,Right}) ->
-    {SQL1,Arg1} = fold_where(Left),
-    {SQL2,Arg2} = fold_where(Right),
-    {["(",SQL1," AND ",SQL2,")"],[Arg1,Arg2]};
-fold_where({'orelse',Left,Right}) ->
-    {SQL1,Arg1} = fold_where(Left),
-    {SQL2,Arg2} = fold_where(Right),
-    {["(",SQL1," OR ",SQL2,")"],[Arg1,Arg2]};
-fold_where({'=',Field,Value}) ->
-    operation_to_sql("=",Field,Value);
-fold_where({'>',Field,Value}) ->
-    operation_to_sql(">",Field,Value);
-fold_where({'<',Field,Value}) ->
-    operation_to_sql("<",Field,Value).
-
-operation_to_sql(Op,{field,ModelName,Field},Value) ->
-    FieldName = dip_orm_configs:field(name,Field),
-    FieldDBType = dip_orm_configs:field(db_type,Field),
-    SQL = ["(\"",ModelName,"\".\"",FieldName,"\" ",Op," ~s)"],
-    case Value of
-	{'not',Value2} ->
-	    {["NOT ",SQL],{tuple,0,[{atom,0,FieldDBType},Value2]}};
-	_ ->
-	    {SQL,{tuple,0,[{atom,0,FieldDBType},Value]}}
-    end.
 %% ===================================================================
 
 % Wrap error line
 wel(_Line,{error,{_Line2,_Reason}} = Err) -> Err;
 wel(Line,{error,Reason}) -> {error,{Line,Reason}};
 wel(_Line,Result) -> Result.
-
-esc(Str) -> ["\"",Str,"\""].
 
 error_to_ast(Line, Reason)->
     {error,{Line,erl_parse,["orm error: ", io_lib:format("~s",[Reason]) ]}}.

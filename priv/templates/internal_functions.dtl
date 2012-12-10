@@ -38,6 +38,17 @@ field_constructor({{f.name}}) ->
 %\
 .
 
+constructor() ->
+    constructor([
+      %\ {% for f in db_fields %}
+      {{ f.name }}
+      %|     {% if not forloop.last %}
+		 ,
+      %|     {% endif %}
+      %| {% endfor %}
+      ]).
+		 
+
 constructor(Fields) ->
     Constractors = [field_constructor(Field) || Field <- Fields],
     fun(Tuple) ->
@@ -64,6 +75,52 @@ constructor(Fields) ->
 	    dip_utils:constructors_fold(ArgList,Constractors,Model)
 	    %| {% endif %}
     end.
-  
 
 
+-spec db_field_opts(Field) -> {ok,Opts} | {error,Reason} when
+    Field :: field(),
+    Opts :: { FullDbName, DBType },
+    FullDbName :: iolist(),
+    DBType :: dip_db:db_type(),
+    Reason :: {field(),unknown}.
+
+%| {% for f in fields %}
+db_field_opts({{f.name}}) ->
+    {ok,{ "\"{{table_name}}\".\"{{f.db_alias}}\"",{{f.db_type}} }};
+%| {% endfor %}
+db_field_opts(FieldName) ->
+    {error,{FieldName,unknown}}.
+
+%| {% for f in fields %}
+db_short_field_opts({{f.name}}) ->
+    {ok,{ "\"{{f.db_alias}}\"",{{f.db_type}} }};
+%| {% endfor %}
+db_short_field_opts(FieldName) ->
+    {error,{FieldName,unknown}}.
+
+%| {% if delete_flag %}
+append_safe_delete(Where) ->
+    {'andalso',{deleted_flag," \"{{table_name}}\".\"{{f.deleted_flag}}\" "}, Where};
+%| {% else %}
+append_safe_delete(Where) -> Where.
+%| {% endif %}
+
+fields_sql() ->
+    "{{ fields_sql }}".
+
+table_sql() ->
+    "\"{{ table_name }}\"".
+
+%| {% for l in links %}
+link_sql({{ l.remote_model }}) ->
+    "{{ l.sql|addslashes }}";
+%| {% endfor %}
+link_sql(Model) ->
+    {error,{Model,unknown}}.
+
+safe_delete_flag() ->
+    %| {% if delete_flag %}
+    "\"{{table_name}}\".\"{{delete_flag}}\"".
+    %| {% else %}
+    undefined.
+    %| {% endif %}

@@ -25,6 +25,7 @@
 	 
 	 field/2,
 	 model/2,
+	 link/2,
 	 
 	 find_link/2,
 	 link_to_join/1
@@ -87,6 +88,11 @@ find_link(#model{name=LocalModelName,links=Links},
 	      end,
     Reason = dip_utils:template("No model '~s' is linked to '~s'",[RemoteModelName,LocalModelName]),
     lists:foldl(FoldFun,{error,Reason},Links).
+
+link(remote_model,#one_to_many{remote_model=Model}) -> Model;
+link(remote_model,#many_to_one{remote_model=Model}) -> Model;
+link(remote_model,#many_to_many{remote_model=Model}) -> Model.
+    
 		      
     
 get_model_field(FieldName,ModelConfig) ->

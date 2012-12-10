@@ -7,7 +7,9 @@
 -export([binary_to_integer/1,
 	 binary_to_number/1,
 	 binary_to_string/1,
-	 binary_to_datetime/1]).
+	 binary_to_datetime/1,
+	 binary_to_boolean/1
+	]).
 
 % Возникла ошибка в receive_results если во время обработки одного запроса выполнить еще один через то же подключение
 % Для решения этой проблемы нужно в каждом запросе добавлять маркер уникальности и проверять его во время разбора результата.
@@ -28,7 +30,7 @@
                       {ok, Count :: integer()} |
                       {ok, Count :: integer(), Columns :: [sql_column()], Rows :: [_]}.
 
--type db_type() :: integer | number | string | datetime.
+-type db_type() :: integer | number | string | datetime | boolean.
 -type sql_arg(Arg) :: {db_type(),Arg}.
 
 -export_type([sql_result/1,
@@ -98,6 +100,7 @@ q(Patter,Args,Fun) ->
 
 % ?TIME_EXEC.
 q2(Connection,Query) ->
+    ?DBG("Query: ~s",[Query]),
     pgsql:squery(Connection,Query).
 
 %% @private Get pool handler
@@ -219,8 +222,16 @@ binary_to_string(Bin) ->
     Bin.
 
 % @TODO: implement this function
--spec binary_to_datetime(binary()) -> binary()
-                      ;(null) -> undefined.
+-spec binary_to_datetime(binary()) -> binary();
+                        (null) -> undefined.
 binary_to_datetime(null) -> undefined;
 binary_to_datetime(Bin) ->
     Bin.
+
+
+-spec binary_to_boolean(binary()) -> true | false;
+                       (null) -> undefined.
+binary_to_boolean(null) -> undefined;
+binary_to_boolean(<<"True">>) -> true;
+binary_to_boolean(<<"False">>) -> false.
+				 

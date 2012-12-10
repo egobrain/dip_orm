@@ -11,6 +11,8 @@
 -include("log.hrl").
 -include("types.hrl").
 
+-compile({parse_transform,do}).
+
 -export([write/2]).
 
 -export([module_atom/1]).
@@ -41,6 +43,7 @@ write(#model{name=Name} = Config, #global_config{output_src_folder=OutFolder}) -
 	       dip_orm_ast:export([
 				   {new,0},
 				   {get, index_fields_count(Config)},
+				   {find,1},
 				   {save,1},
 				   {delete,1}
 				  ]),
@@ -52,14 +55,23 @@ write(#model{name=Name} = Config, #global_config{output_src_folder=OutFolder}) -
 				   {from_proplist,2},
 				   {from_bin_proplist,1},
 				   {from_bin_proplist,2},
-				   {to_proplist,1},
-
-
+				   {to_proplist,1}
+				  ]),
+	       dip_orm_ast:comment("Internal functions"),
+	       dip_orm_ast:export([
+				   {safe_delete_flag,0},
+				   {db_field_opts,1},
+				   {db_short_field_opts,1},
+				   {append_safe_delete,1},
+				   {fields_sql,0},
+				   {table_sql,0},
+				   {link_sql,1},
 				   {field_constructor,1} % REMOVE THIS !!!
 				  ]),
 	       dip_orm_ast:export([
 				   {valid,1},
 				   {validator,1},
+				   {constructor,0},
 				   {constructor,1}
 				  ]),
 	       
@@ -296,16 +308,26 @@ get_user_can_read_field(_) -> filtered.
 %%% Internal functoins
 %% ===================================================================
 
-render_internal_functions(#model{name=Name,fields=Fields}) ->
+render_internal_functions(#model{name=Name,fields=Fields} = Model) ->
     ModuleName = atom_to_list(module_atom(Name)),
     InternalFields = get_internal_function_fields(Fields),
     CustomInitFields = get_custom_init_fields(Fields),
     WriteOnlyFields = get_write_only_fields(Fields),
+    TableName = dip_orm_configs:model(db_table,Model),
+    SafeDelete = dip_orm_configs:model(safe_delete,Model),
+    FieldsStr = get_db_str_fields(TableName,Fields),
+    DbFields = get_db_fields(Fields),
+    Links = get_db_links(Model),
     {ok,Content} = internal_functions_dtl:render([
 						  {model_name,ModuleName},
+						  {table_name,TableName},
 						  {fields,InternalFields},
+						  {db_fields,DbFields},
 						  {custom_init_fields,CustomInitFields},
-						  {write_only_fields,WriteOnlyFields}
+						  {write_only_fields,WriteOnlyFields},
+						  {delete_flag,SafeDelete},
+						  {fields_sql,dip_utils:template("~s",[string:join(FieldsStr,",")])},
+						  {links,Links}
 						 ]),
     dip_orm_ast:raw(Content).
 
@@ -326,10 +348,12 @@ get_internal_function_fields(Fields) ->
 get_internal_function_field(#field{name=Name,
 				   is_in_database=true,
 				   db_options=#db_options{
+				     alias = Alias,
 				     type=Db_type
 				    }}) ->
     {ok,[
 	 {name,Name},
+	 {db_alias,Alias},
 	 {db_type,Db_type}
 	]};
 get_internal_function_field(_) -> filtered.
@@ -345,6 +369,11 @@ get_custom_init_field(#field{name=Name,
     {ok,[{name,Name}]};
 get_custom_init_field(_) -> filtered.
 
+
+get_db_links(#model{links=Links} = Model) ->
+    [[{remote_model,dip_orm_configs:link(remote_model,L)},
+      {sql,iolist_to_binary(dip_orm_configs:link_to_join(L))}] || L <- Links].
+
 %% ===================================================================
 %%% Internal helpers
 %% ===================================================================
@@ -353,10 +382,16 @@ render_dtw(#model{name=Name,fields=Fields,
 		  options=#options{dtw=true}} = Config) ->
     
     Table = dip_orm_configs:model(db_table,Config),
+    SafeDelete = dip_orm_configs:model(safe_delete,Config),
     Db_fields = get_db_fields(Fields),
     FieldsStr = get_db_str_fields(Table,Fields),
+    SafeDeleteStr = case SafeDelete of
+			undefined -> "";
+			SafeField ->
+			    dip_utils:template("~s",[[esc(Table),".",esc(SafeField)," = FALSE"]])
+		    end,
     {ok,Content} =  dtw_dtl:render([{fields_str,dip_utils:template("~s",[string:join(FieldsStr,",")])},
-				    % {safe_delete_str,SafeDeleteStr},
+				    {safe_delete_str,SafeDeleteStr},
 				    {fields,Db_fields}
 				    ]),
     dip_orm_ast:raw(Content);
@@ -382,8 +417,7 @@ get_db_str_fields(TableName,Fields) ->
 		      {ok,[TableEsc,".",esc(Db_alias)]};
 		 (_) -> filtered
 	      end,
-    dip_utils:map_filter(FoldFun,Fields).
-		      
+    dip_utils:map_filter(FoldFun,Fields).		      
 			     
 
 %% ===================================================================
@@ -429,5 +463,4 @@ auto(stop) ->
 
 esc(Str) ->
     ["\\\"",Str,"\\\""].
-
 
