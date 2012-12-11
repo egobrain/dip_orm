@@ -85,7 +85,7 @@ parse({call,_Line,{atom,Line2,dip_orm},Args}) ->
 parse({call,Line,{remote,_Line2,{atom,_Line3,Module},{atom,_Line4,efind}} = Remote,Args}) ->
     case dip_orm:module_to_model(Module) of
 	{ok,ModelName} ->
-	    parse_efind([Args],ModelName);
+	    parse_efind(Args,ModelName);
 	_ ->
 	    case {dip_orm:dip_module_to_model(Module),Args} of
 		{{ok,ModelName},[ScopeAst|RestArgs]} ->
@@ -480,8 +480,8 @@ request_to_efind_ast(#request{type=select,
 			      limit = LimitAst,
 			      offset = OffsetAst}) ->
     TargetModelName = dip_orm_configs:model(name,Model),
-    {ok,ModuleName} = dip_orm:model_to_module(TargetModelName),
-    % ModuleName = list_to_atom(binary_to_list(dip_orm_configs:model_to_module(TargetModelName))),
+    % {ok,ModuleName} = dip_orm:model_to_module(list_to_atom(binary_to_list(TargetModelName))),
+    ModuleName = list_to_atom(binary_to_list(dip_orm_configs:model_to_module(TargetModelName))),
     WhereAst = where_to_ast(Where),
     Res = ast(function,ModuleName,find,
 	      [
