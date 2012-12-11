@@ -40,9 +40,10 @@ field_constructor({{f.name}}) ->
 
 constructor() ->
     constructor([
-      %\ {% for f in db_fields %}
+      %| {% for f in db_fields %}
       {{ f.name }}
       %|     {% if not forloop.last %}
+		 %\
 		 ,
       %|     {% endif %}
       %| {% endfor %}

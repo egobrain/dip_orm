@@ -1,0 +1,44 @@
+%% -*- erlang -*-
+
+call(Scope,Request) ->
+    {ok,Ticket} = scope:ticket(Scope),
+    dip_worker:call(Ticket,{?MODULE,Scope,Request}).
+
+-spec handle(Request,Scope,State) -> {ok, State} | {ok, Result, State} |  {error,Reason} when
+    Request :: term(),
+    Scope :: scope:scope(),
+    State :: user_thread:user_state(),
+    Result :: any(),
+    Reason :: any().
+handle({get,
+	%\ {% for index_field in index_fields %}
+	{{index_field.name|capfirst}}
+	%\    {% if not forloop.last %}
+	,
+	%|    {% endif %}
+	%\ {% endfor %}
+       },Scope,UserState) ->
+    do([error_m ||
+	   Result <- db_user:get(
+		       %\ {% for index_field in index_fields %}
+		       {{index_field.name|capfirst}}
+		       %\    {% if not forloop.last %}
+		       ,
+		       %|    {% endif %}
+		       %\ {% endfor %}
+		      ),
+	   {ok,Result,UserState}]);
+handle({save,{{model_name|capfirst}} },Scope,UserState) ->
+    do([error_m ||
+	   Result <- {{model_name}}:save({{model_name|capfirst}}),
+	   {ok,Result,UserState}]);
+handle({find,Req},Scope,UserState) ->
+    do([error_m ||
+	   Result <- {{model_name}}:find(Req),
+	   {ok,Result,UserState}]);
+handle({delete,{{model_name|capfirst}}},Scope,UserState) ->
+    do([error_m ||
+	   Result <- {{model_name}}:delete({{model_name|capfirst}}),
+	   {ok,Result,UserState}]);
+handle(Request,Scope,UserState) ->
+    {error,undef_call}.

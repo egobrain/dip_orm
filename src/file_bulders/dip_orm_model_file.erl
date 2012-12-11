@@ -15,7 +15,12 @@
 
 -export([write/2]).
 
--export([module_atom/1]).
+-export([index_fields_count/1,
+	 export_getters_and_setters/1,
+	 render_getters_and_setters/1,
+	 get_index_fields/1,
+	 get_getters_and_setters_fields/1
+	]).
 
 -define(PREFIX,"db_").
 
@@ -23,74 +28,81 @@
 %%% API
 %% ===================================================================
 
-write(#model{name=Name} = Config, #global_config{output_src_folder=OutFolder}) ->
-    ModuleName = module_atom(Name),
-    Content = [
-	       dip_orm_ast:module(ModuleName),
-	       auto(start),
-	       dip_orm_ast:attribute(compile,[{parse_transform,do}]),
-	       dip_orm_ast:attribute(compile,[{parse_transform,cut}]),
-	       dip_orm_ast:attribute(compile,[{parse_transform,dip_orm}]),
-	       dip_orm_ast:attribute(include,["log.hrl"]),
+write(#model{name=Name} = Model, #global_config{output_src_folder=OutFolder}) ->
+    ModuleName = dip_orm_configs:model_to_module(Name),
+    IsNew = not dip_orm_file:check_exists(ModuleName,OutFolder),
 
-	       dip_orm_ast:spacer("TYPES"),
-	       render_types(Config),
+    RequiredContent = [
+		       dip_orm_ast:auto(start),
+		       dip_orm_ast:attribute(compile,[{parse_transform,do}]),
+		       dip_orm_ast:attribute(compile,[{parse_transform,cut}]),
+		       dip_orm_ast:attribute(compile,[{parse_transform,dip_orm}]),
+		       dip_orm_ast:attribute(include,["log.hrl"]),
 
-	       render_dtw(Config),
-	       
-	       dip_orm_ast:spacer("Exports"),
-	       dip_orm_ast:comment("Database interection"),
-	       dip_orm_ast:export([
-				   {new,0},
-				   {get, index_fields_count(Config)},
-				   {find,1},
-				   {save,1},
-				   {delete,1}
-				  ]),
-	       dip_orm_ast:comment("Getters and setters"),
-	       export_getters_and_setters(Config),
-	       dip_orm_ast:comment("Proplist converters"),
-	       dip_orm_ast:export([
-				   {from_proplist,1},
-				   {from_proplist,2},
-				   {from_bin_proplist,1},
-				   {from_bin_proplist,2},
-				   {to_proplist,1}
-				  ]),
-	       dip_orm_ast:comment("Internal functions"),
-	       dip_orm_ast:export([
-				   {safe_delete_flag,0},
-				   {db_field_opts,1},
-				   {db_short_field_opts,1},
-				   {append_safe_delete,1},
-				   {fields_sql,0},
-				   {table_sql,0},
-				   {link_sql,1},
-				   {field_constructor,1} % REMOVE THIS !!!
-				  ]),
-	       dip_orm_ast:export([
-				   {valid,1},
-				   {validator,1},
-				   {constructor,0},
-				   {constructor,1}
-				  ]),
-	       
-	       dip_orm_ast:spacer("Getters and setters"),
-	       render_getters_and_setters(Config),
+		       dip_orm_ast:spacer("TYPES"),
+		       render_types(Model),
 
-	       dip_orm_ast:spacer("CRUD. DB operations"),
-	       render_crud(Config),
+		       render_dtw(Model),
 
-	       dip_orm_ast:spacer("Validators/Data setters"),
-	       render_data_validators(Config),
+		       dip_orm_ast:spacer("Exports"),
+		       dip_orm_ast:comment("Database interection"),
+		       dip_orm_ast:export([
+					   {new,0},
+					   {get, index_fields_count(Model)},
+					   {find,1},
+					   {save,1},
+					   {delete,1}
+					  ]),
+		       dip_orm_ast:comment("Getters and setters"),
+		       export_getters_and_setters(Model),
+		       dip_orm_ast:comment("Proplist converters"),
+		       dip_orm_ast:export([
+					   {from_proplist,1},
+					   {from_proplist,2},
+					   {from_bin_proplist,1},
+					   {from_bin_proplist,2},
+					   {to_proplist,1}
+					  ]),
+		       dip_orm_ast:comment("Internal functions"),
+		       dip_orm_ast:export([
+					   {safe_delete_flag,0},
+					   {db_field_opts,1},
+					   {db_short_field_opts,1},
+					   {append_safe_delete,1},
+					   {fields_sql,0},
+					   {table_sql,0},
+					   {link_sql,1},
+					   {field_constructor,1} % REMOVE THIS !!!
+					  ]),
+		       dip_orm_ast:export([
+					   {valid,1},
+					   {validator,1},
+					   {constructor,0},
+					   {constructor,1}
+					  ]),
 
-	       dip_orm_ast:spacer("Internal functions"),
-	       render_internal_functions(Config),
-	       
-	       auto(stop)
-	      ],
+		       dip_orm_ast:spacer("Getters and setters"),
+		       render_getters_and_setters(Model),
+
+		       dip_orm_ast:spacer("CRUD. DB operations"),
+		       render_crud(Model),
+
+		       dip_orm_ast:spacer("Validators/Data setters"),
+		       render_data_validators(Model),
+
+		       dip_orm_ast:spacer("Internal functions"),
+		       render_internal_functions(Model),
+
+		       dip_orm_ast:auto(stop)
+		      ],
+    Content = case IsNew of
+		  true ->
+		      [dip_orm_ast:module(ModuleName)|RequiredContent];
+		  false ->
+		      RequiredContent
+	      end,    
     ResultContent = dip_orm_ast:pretty_print(Content),
-    dip_orm_file:write_module(ModuleName,OutFolder,ResultContent).
+    dip_orm_file:write_module(ModuleName,OutFolder,ResultContent,IsNew).
 
 
 %% ===================================================================
@@ -98,7 +110,7 @@ write(#model{name=Name} = Config, #global_config{output_src_folder=OutFolder}) -
 %% ===================================================================
 
 render_types(#model{name=Name,fields=Fields}) ->
-    ModuleName = module_atom(Name),
+    ModuleName = dip_orm_configs:model_to_module(Name),
     RecordFields = get_types_fields(Fields),
     RequiredFields = get_required_fields(Fields),
     {ok,Content} = db_types_dtl:render([{model_name,ModuleName},
@@ -108,33 +120,35 @@ render_types(#model{name=Name,fields=Fields}) ->
     dip_orm_ast:raw(Content).
 
 get_required_fields(Fields) ->
-    dip_utils:map_filter(fun get_required_field/1,Fields).
-get_required_field(#field{name=Name,
+    FMapFun = fun(#field{name=Name,
 			   has_record=true,
 			   is_required=true
 			  }) ->
-    {ok,[{name,Name}]};
-get_required_field(_) -> filtered.
+		      {ok,[{name,Name}]};
+		 (_) -> filtered
+	      end,
+    dip_utils:map_filter(FMapFun,Fields).
 
 get_types_fields(Fields) ->
-    dip_utils:map_filter(fun get_types_field/1,Fields).
-get_types_field(#field{name=Name,
-		       has_record=true,
-		       record_options=#record_options{
-			 default_value=Default,
-			 type=Type,
-			 mode=#access_mode{
-			   sr=Sr
+    FMapFun = fun(#field{name=Name,
+			 has_record=true,
+			 record_options=#record_options{
+			   default_value=Default,
+			   type=Type,
+			   mode=#access_mode{
+			     sr=Sr
+			    }
 			  }
-			}
-		      }) ->
-    {ok,[
-	 {name,Name},
-	 {default,Default},
-	 {type,type_to_string(Type)},
-	 {system_read,Sr}
-	]};
-get_types_field(_) -> filtered.
+			}) ->
+		      {ok,[
+			   {name,Name},
+			   {default,Default},
+			   {type,type_to_string(Type)},
+			   {system_read,Sr}
+			  ]};
+		 (_) -> filtered
+	      end,
+    dip_utils:map_filter(FMapFun,Fields).
 
 %% ===================================================================
 %%% Exports
@@ -171,64 +185,67 @@ get_exports([#field{name=Name,
 %% ===================================================================
     
 render_getters_and_setters(#model{name=Name,fields=Fields}) ->
-    ModuleName = module_atom(Name),
+    ModuleName = dip_orm_configs:model_to_module(Name),
     RecordFields = get_getters_and_setters_fields(Fields),
-    {ok,Content} = getters_and_setters_dtl:render([{model_name,atom_to_list(ModuleName)},
+    {ok,Content} = getters_and_setters_dtl:render([{model_name,ModuleName},
 						   {fields,RecordFields}]),
     dip_orm_ast:raw(Content).
 
 get_getters_and_setters_fields(Fields) ->
-    dip_utils:map_filter(fun get_getters_and_setters_field/1,Fields).
+    FMapFun = fun(#field{name=Name,
+			 has_record=true,
+			 record_options=#record_options{
+			   getter=Getter,
+			   setter=Setter,
+			   type=Type,
+			   mode=Mode}}) ->
+		      HasGetter = case {Getter,Mode#access_mode.sr} of
+				      {true,true} -> true;
+				      _ -> false
+				  end,
+		      HasSetter = case {Setter,Mode#access_mode.sw} of
+				      {true,true} -> true;
+				      _ -> false
+				  end,
+		      {ok,[
+			   {name,Name},
+			   {type,type_to_string(Type)},
+			   {has_getter,HasGetter},
+			   {has_setter,HasSetter}
+			  ]};
+		 (_) -> filtered
+	      end,
+    dip_utils:map_filter(FMapFun,Fields).
 
-get_getters_and_setters_field(#field{name=Name,
-				       has_record=true,
-				       record_options=#record_options{
-					 getter=Getter,
-					 setter=Setter,
-					 type=Type,
-					 mode=Mode}}) ->
-    HasGetter = case {Getter,Mode#access_mode.sr} of
-		    {true,true} -> true;
-		    _ -> false
-		end,
-    HasSetter = case {Setter,Mode#access_mode.sw} of
-		    {true,true} -> true;
-		    _ -> false
-		end,
-    {ok,[
-	 {name,Name},
-	 {type,type_to_string(Type)},
-	 {has_getter,HasGetter},
-	 {has_setter,HasSetter}
-	]};
-get_getters_and_setters_field(_) -> filtered.
 
 %% ===================================================================
 %%% CRUD. DB operations
 %% ===================================================================
 
 render_crud(#model{name=Name,fields=Fields}) ->
-    ModuleName = atom_to_list(module_atom(Name)),
+    ModuleName = dip_orm_configs:model_to_module(Name),
     IndexFields = get_index_fields(Fields),
-    {ok,Content} =  crud_dtl:render([{model,binary_to_atom(Name)},
+    {ok,Content} =  crud_dtl:render([{model,Name},
 				     {model_name,ModuleName},
 				     {index_fields,IndexFields}
 				    ]),
     dip_orm_ast:raw(Content).
 get_index_fields(Fields) ->
-    dip_utils:map_filter(fun get_index_field/1,Fields).
-get_index_field(#field{name=Name,
-		       has_record=true,
-		       is_index=true,
-		       is_in_database=true,
-		       record_options=#record_options{
-			 type=Type
-			}}) ->
-    {ok,[
-	 {name,Name},
-	 {type,type_to_string(Type)}
-	]};
-get_index_field(_) -> filtered.
+    FMapFun = fun(#field{name=Name,
+			 has_record=true,
+			 is_index=true,
+			 is_in_database=true,
+			 record_options=#record_options{
+			   type=Type
+			  }}) ->
+		      {ok,[
+			   {name,Name},
+			   {type,type_to_string(Type)}
+			  ]};
+		 (_) -> filtered
+	      end,
+    dip_utils:map_filter(FMapFun,Fields).
+
 
 index_fields_count(#model{fields=Fields}) ->
     FoldFun = fun(#field{has_record=true,
@@ -243,7 +260,7 @@ index_fields_count(#model{fields=Fields}) ->
 %% ===================================================================
 
 render_data_validators(#model{name=Name,fields=Fields}) ->
-    ModuleName = atom_to_list(module_atom(Name)),
+    ModuleName = dip_orm_configs:model_to_module(Name),
     ValidatorFields = get_validator_fields(Fields),
     SetterFields = get_setter_fields(Fields),
     FieldsWhichUserCanRead = get_user_can_read_fields(Fields),
@@ -255,68 +272,72 @@ render_data_validators(#model{name=Name,fields=Fields}) ->
     dip_orm_ast:raw(Content).
 
 get_validator_fields(Fields) ->
-    dip_utils:map_filter(fun get_validator_field/1,Fields).
-get_validator_field(#field{name=Name,
-			   has_record=true,
-			   is_required=IsRequired,
-			   record_options=#record_options{
-			     validators=Validators,
-			           mode=#access_mode{
-				     sr=Sr,
-				     sw=Sw
-				    }
-			    }}) ->
-    Validators2 = [validator_to_string(V) || V <- Validators],
-    IsWriteOnly = {Sr,Sw} =:= {false,true},
-    {ok,[
-	 {name,Name},
-	 {is_required,IsRequired},
-	 {validators,Validators2},
-	 {is_write_only,IsWriteOnly}
-	]};
-get_validator_field(_) -> filtered.
+    FMapFun = fun(#field{name=Name,
+			 has_record=true,
+			 is_required=IsRequired,
+			 record_options=#record_options{
+			   validators=Validators,
+			   mode=#access_mode{
+			     sr=Sr,
+			     sw=Sw
+			    }
+			  }}) ->
+		      Validators2 = [validator_to_string(V) || V <- Validators],
+		      IsWriteOnly = {Sr,Sw} =:= {false,true},
+		      {ok,[
+			   {name,Name},
+			   {is_required,IsRequired},
+			   {validators,Validators2},
+			   {is_write_only,IsWriteOnly}
+			  ]};
+		 (_) -> filtered
+	      end,
+    dip_utils:map_filter(FMapFun,Fields).
 
 get_setter_fields(Fields) ->
-    dip_utils:map_filter(fun get_setter_field/1,Fields).
+    FMapFun = fun(#field{name=Name,
+			 has_record=true,
+			 record_options=#record_options{
+			   setter=Setter,
+			   type=Type,
+			   mode=Mode}}) when Setter =/= false ->   
+		      {ok,[
+			   {name,Name},
+			   {type,Type},
+			   {system_can_write,Mode#access_mode.sw},
+			   {user_can_write,Mode#access_mode.w}
+			  ]};
+		 (_) -> filtered
+	      end,
+    dip_utils:map_filter(FMapFun,Fields).
 
-get_setter_field(#field{name=Name,
-			has_record=true,
-			record_options=#record_options{
-			  setter=Setter,
-			  type=Type,
-			  mode=Mode}}) when Setter =/= false ->   
-    {ok,[
-	 {name,Name},
-	 {type,Type},
-	 {system_can_write,Mode#access_mode.sw},
-	 {user_can_write,Mode#access_mode.w}
-	]};
-get_setter_field(_) -> filtered.
+
 
 
 get_user_can_read_fields(Fields) ->
-    dip_utils:map_filter(fun get_user_can_read_field/1,Fields).
-get_user_can_read_field(#field{name=Name,
-				 has_record=true,
-				 record_options=#record_options{
-				   mode=#access_mode{r=true}
-				  }}) ->
-    {ok,[{name,Name}]};
-get_user_can_read_field(_) -> filtered.
+    FMapFun = fun(#field{name=Name,
+			 has_record=true,
+			 record_options=#record_options{
+			   mode=#access_mode{r=true}
+			  }}) ->
+		      {ok,[{name,Name}]};
+		 (_) -> filtered
+	      end,
+    dip_utils:map_filter(FMapFun,Fields).
 
 %% ===================================================================
 %%% Internal functoins
 %% ===================================================================
 
 render_internal_functions(#model{name=Name,fields=Fields} = Model) ->
-    ModuleName = atom_to_list(module_atom(Name)),
+    ModuleName = dip_orm_configs:model_to_module(Name),
     InternalFields = get_internal_function_fields(Fields),
     CustomInitFields = get_custom_init_fields(Fields),
     WriteOnlyFields = get_write_only_fields(Fields),
     TableName = dip_orm_configs:model(db_table,Model),
     SafeDelete = dip_orm_configs:model(safe_delete,Model),
     FieldsStr = get_db_str_fields(TableName,Fields),
-    DbFields = get_db_fields(Fields),
+    DbFields = get_db_read_fields(Fields),
     Links = get_db_links(Model),
     {ok,Content} = internal_functions_dtl:render([
 						  {model_name,ModuleName},
@@ -332,45 +353,51 @@ render_internal_functions(#model{name=Name,fields=Fields} = Model) ->
     dip_orm_ast:raw(Content).
 
 get_write_only_fields(Fields) ->
-    dip_utils:map_filter(fun get_write_only_field/1,Fields).
-get_write_only_field(#field{name=Name,
-			    is_in_database=true,
-			    record_options=#record_options{
-			      mode=#access_mode{
-				sw=true,
-				sr=false
-			       }}}) ->
-    {ok,[{name,Name}]};
-get_write_only_field(_) -> filtered.
+    FMapFun = fun(#field{name=Name,
+			 is_in_database=true,
+			 record_options=#record_options{
+			   mode=#access_mode{
+			     sw=true,
+			     sr=false
+			    }}}) ->
+		      {ok,[{name,Name}]};
+		 (_) -> filtered
+	      end,			   
+    dip_utils:map_filter(FMapFun,Fields).
+
     
 get_internal_function_fields(Fields) ->
-    dip_utils:map_filter(fun get_internal_function_field/1,Fields).
-get_internal_function_field(#field{name=Name,
-				   is_in_database=true,
-				   db_options=#db_options{
-				     alias = Alias,
-				     type=Db_type
-				    }}) ->
-    {ok,[
-	 {name,Name},
-	 {db_alias,Alias},
-	 {db_type,Db_type}
-	]};
-get_internal_function_field(_) -> filtered.
+    FMapFun = fun(#field{name=Name,
+			 is_in_database=true,
+			 db_options=#db_options{
+			   alias = Alias,
+			   type=Db_type
+			  }}) ->
+		      {ok,[
+			   {name,Name},
+			   {db_alias,Alias},
+			   {db_type,Db_type}
+			  ]};
+		 (_) -> filtered
+	      end,
+    dip_utils:map_filter(FMapFun,Fields).
+
 
 
 get_custom_init_fields(Fields) ->
-    dip_utils:map_filter(fun get_custom_init_field/1,Fields).
-get_custom_init_field(#field{name=Name,
-			     has_record=true,
-			     record_options=#record_options{
-			       init=true
-			      }}) ->
-    {ok,[{name,Name}]};
-get_custom_init_field(_) -> filtered.
+    FMapFun = fun(#field{name=Name,
+			 has_record=true,
+			 record_options=#record_options{
+			   init=true
+			  }}) ->
+		      {ok,[{name,Name}]};
+		 (_) -> filtered
+	      end,
+    dip_utils:map_filter(FMapFun,Fields).
 
 
-get_db_links(#model{links=Links} = Model) ->
+
+get_db_links(#model{links=Links}) ->
     [[{remote_model,dip_orm_configs:link(remote_model,L)},
       {sql,iolist_to_binary(dip_orm_configs:link_to_join(L))}] || L <- Links].
 
@@ -378,8 +405,7 @@ get_db_links(#model{links=Links} = Model) ->
 %%% Internal helpers
 %% ===================================================================
 
-render_dtw(#model{name=Name,fields=Fields,
-		  options=#options{dtw=true}} = Config) ->
+render_dtw(#model{fields=Fields,options=#options{dtw=true}} = Config) ->
     
     Table = dip_orm_configs:model(db_table,Config),
     SafeDelete = dip_orm_configs:model(safe_delete,Config),
@@ -395,29 +421,52 @@ render_dtw(#model{name=Name,fields=Fields,
 				    {fields,Db_fields}
 				    ]),
     dip_orm_ast:raw(Content);
-render_dtw(#model{options=#options{dtw=false}} = Config) ->
+render_dtw(#model{options=#options{dtw=false}}) ->
     dip_orm_ast:raw("").
 
 get_db_fields(Fields) ->
-    dip_utils:map_filter(fun get_db_field/1,Fields).
-get_db_field(#field{name=Name,
-		    is_in_database=true} = Field)  ->
-    Db_alias = dip_orm_configs:field(db_alias,Field),
-    Db_type = dip_orm_configs:field(db_type,Field),
-    {ok,[{name,Name},
-	 {db_alias,Db_alias},
-	 {db_type,Db_type}]};
-get_db_field(_) -> filtered.
+    FMapFun = fun(#field{name=Name,
+			 is_in_database=true} = Field)  ->
+		      Db_alias = dip_orm_configs:field(db_alias,Field),
+		      Db_type = dip_orm_configs:field(db_type,Field),
+		      {ok,[{name,Name},
+			   {db_alias,Db_alias},
+			   {db_type,Db_type}]};
+		 (_) -> filtered
+	      end,
+    dip_utils:map_filter(FMapFun,Fields).
+
+
+get_db_read_fields(Fields) ->
+    FMapFun = fun (#field{name=Name,
+			  is_in_database=true,
+			  record_options=#record_options{
+			    mode=#access_mode{
+			      sr=true
+			     }}} = Field)  ->
+		      Db_alias = dip_orm_configs:field(db_alias,Field),
+		      Db_type = dip_orm_configs:field(db_type,Field),
+		      {ok,[{name,Name},
+			   {db_alias,Db_alias},
+			   {db_type,Db_type}]};
+		  (_) -> filtered
+	      end,
+    dip_utils:map_filter(FMapFun,Fields).
+
 
 
 get_db_str_fields(TableName,Fields) ->
     TableEsc = esc(TableName),
-    FoldFun = fun(#field{is_in_database=true} = Field)  ->
+    FMapFun = fun(#field{is_in_database=true,
+			record_options=#record_options{
+			 mode=#access_mode{
+			  sr=true
+			  }}} = Field)  ->
 		      Db_alias = dip_orm_configs:field(db_alias,Field),
 		      {ok,[TableEsc,".",esc(Db_alias)]};
 		 (_) -> filtered
 	      end,
-    dip_utils:map_filter(FoldFun,Fields).		      
+    dip_utils:map_filter(FMapFun,Fields).		      
 			     
 
 %% ===================================================================
@@ -440,26 +489,6 @@ validator_to_string(#validator_function{module=M,
 
 binary_to_atom(Bin) ->
     list_to_atom(binary_to_list(Bin)).
-
-module_atom(Str) ->
-    binary_to_atom(
-	<<?PREFIX,Str/binary>>).
-
-auto(start) ->
-    Content =
-	"%% __autostart__\n"
-	"%% >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>\n"
-	"%%% Please don't edit this file manualy. This file was autogenerated\n"
-	"%%% from configs. Orm setup stores in 'rebar.config'\n"
-	"%% >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>\n",
-    dip_orm_ast:raw(Content);
-auto(stop) ->
-    Content =
-	"%% <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<\n"
-	"%%% End of autogenerated text\n"
-	"%% <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<\n"
-	"%% __autoend__\n",
-    dip_orm_ast:raw(Content).
 
 esc(Str) ->
     ["\\\"",Str,"\\\""].

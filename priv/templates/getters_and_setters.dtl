@@ -6,13 +6,15 @@ new() ->
 
 %| {% for f in fields %}
 %|    {% if f.has_getter %}
+
 % @doc Getter for {{f.name}}
--spec {{f.name}}({{model_name}}()) -> {{f.name|capfirst}}::{{f.type}}.
+-spec {{f.name}}({{model_name}}:{{model_name}}()) -> {{f.name|capfirst}}::{{f.type}}.
 {{f.name}}({{model_name|capfirst}}) ->
     {{model_name|capfirst}}#{{model_name}}.{{f.name}}.
 %|    {% endif %}
 
 %|    {% if f.has_setter %}
+
 % @doc Setter for {{f.name}}
 -spec set_{{f.name}}({{f.type}},{{model_name}}()) -> {ok,{{model_name|capfirst}}::{{model_name}}()}.
 set_{{f.name}}(Val,#{{model_name}}{ {{f.name}} = {{f.name|capfirst}} } = {{model_name|capfirst}}) ->

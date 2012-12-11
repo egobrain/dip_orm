@@ -13,11 +13,13 @@
 -export([extract_config/1,
 	 get_module_name/1,
 	 place_generated_block/2,
-	 read_config/1
+	 read_config/1,
+	 check_exists/2
 	]).
 
 -export([
-	 write_module/3
+	 write_module/3,
+	 write_module/4
 	]).
 
 %% ===================================================================
@@ -73,13 +75,33 @@ place_generated_block(Filename,Block) ->
 	  ]).
 
 write_module(Module,Path,Content) ->
+    write_module(Module,Path,Content,true).
+
+write_module(Module,Path,Content,true) ->
     ModuleFilename = module_filename(Module),
     FilePath = filename:join(Path,ModuleFilename),
     Content2 = list_to_binary(dip_utils:template("~s",[Content])),
     {ok,Content3} = apply_formating_comments(Content2),
     filelib:ensure_dir(Path),
-    file:write_file(FilePath,Content3).
+    file:write_file(FilePath,Content3);
+write_module(Module,Path,Content,false) ->
+    ModuleFilename = module_filename(Module),
+    FilePath = filename:join(Path,ModuleFilename),
+
+    {ok,OldContent} = file:read_file(FilePath),
+    {ok,CleanOldContent} = drop_prev_block(OldContent),
+    {ok,{DeclPart,CodePart}} = split_code(CleanOldContent),
     
+    Content2 = list_to_binary(dip_utils:template("~s",[Content])),
+    {ok,Content3} = apply_formating_comments(Content2),
+    ResultContent = [DeclPart,Content3,CodePart],
+    
+    file:write_file(FilePath,ResultContent).
+
+check_exists(Module,Path) ->
+    ModuleFilename = module_filename(Module),
+    FilePath = filename:join(Path,ModuleFilename),
+    filelib:is_file(FilePath).
 
 %% ===================================================================
 %%% Internal functions

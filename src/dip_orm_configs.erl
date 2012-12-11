@@ -19,16 +19,17 @@
 	]).
 
 -export([
-	 find_model/2,
 	 get_model_field/2,
-
 	 
 	 field/2,
 	 model/2,
 	 link/2,
 	 
 	 find_link/2,
-	 link_to_join/1
+	 link_to_join/1,
+
+	 model_to_module/1,
+	 model_to_dip_module/1
 	]).
 -include("log.hrl").
 
@@ -52,28 +53,11 @@
 %%% API
 %% ===================================================================
 
-find_model(ModelName,Models) ->
-    do([error_m ||
-	   ModelName2 <- not_null_binary(ModelName),
-	   find_model_(ModelName2,Models)
-	      ]).
+model_to_module(Str) ->
+    <<"db_",Str/binary>>.
 
-find_model_(ModelName,Models) ->
-    case lists:keyfind(ModelName,#model.name,Models) of
-	#model{} = Model ->
-	    {ok,Model};
-	false ->
-	    Reason = dip_utils:template("Unknown model: ~s",[ModelName]), 
-	    {error,Reason}
-    end.
-
-% find_field(FieldName,#model{fields=Fields} = Model) ->
-%     case lists:keyfind(FieldName,#field.name,Fields) of
-% 	#field{} = Field ->
-% 	    {ok,Field};
-% 	false ->
-% 	    {error,undefined}
-%     end.
+model_to_dip_module(Str) ->
+    <<"dip_",Str/binary>>.
 
 find_link(#model{name=LocalModelName,links=Links},
 	  #model{name=RemoteModelName}) ->
@@ -120,7 +104,8 @@ model(name,#model{name=Name}) -> Name;
 model(db_fields,#model{fields=Fields}) ->
     [F || F <- Fields,F#field.is_in_database,((F#field.record_options)#record_options.mode)#access_mode.sr];
 model(db_table,#model{options=#options{table=Table}}) -> Table;
-model(safe_delete,#model{options=#options{deleted_flag_name=Flag}}) -> Flag.
+model(safe_delete,#model{options=#options{deleted_flag_name=Flag}}) -> Flag;
+model(dip,#model{options=#options{dip=Dip}}) -> Dip.
    
 
 link_to_join(#one_to_many{local_table=LocalTable,
@@ -164,11 +149,15 @@ get_global_config(Config) ->
 	   OutputSrcFolder_ <- default(option,output_src_folder,Opts,<<"src/">>),
 	   OutputSrcFolder <- not_null_binary(OutputSrcFolder_),
 
+	   DipSrcFolder_ <- default(option,output_dip_src_folder,Opts,<<"src/">>),
+	   DipSrcFolder <- not_null_binary(DipSrcFolder_),	   
+
 	   Suffix_ <- default(option,config_suffix,Opts,<<".cfg">>),
 	   Suffix <- not_null_binary(Suffix_),
 	   return(
 	     #global_config{configs_folder=ConfigsFolder,
 			    output_src_folder=OutputSrcFolder,
+			    output_dip_src_folder=DipSrcFolder,
 			    config_suffix=Suffix
 			   })
 	      ]).
@@ -212,7 +201,7 @@ fill_links(Models) ->
 	   Dict2 <- fill_links_db_options(Dict),
 	   Dict3 <- fill_one_to_many_links(Dict2),
 	   Dict4 <- fill_many_to_many_links(Dict3),
-	   print_dict_links(Dict4),
+	   % print_dict_links(Dict4),
 	   return(dict_to_models(Dict4))
 	      ]).
 
@@ -226,10 +215,9 @@ dict_to_models(Dict) ->
     {_,Models} = lists:unzip(Proplist),
     Models.
 
-print_dict_links(Dict) ->
-    Models = dict_to_models(Dict),
-    [?DBG("~s: ~p",[Name,Links]) || #model{name=Name,links=Links} <- Models],
-    ?DBG(" ~n =========================================== ~n ").
+% print_dict_links(Dict) ->
+%     Models = dict_to_models(Dict),
+%     ?DBG(" ~n =========================================== ~n ").
 
 fill_links_db_options(ModelsDict) ->
     FoldFun = fun(#model{name=LocalModelName,links=Links} = LocalModel,Dict) ->
@@ -477,9 +465,10 @@ normalize_options(Options) ->
     do([error_m ||
 	   Table <- required(option,table,Options),
 	   TableName <- not_null_binary(Table),
+	   Dip <- default(option_or_flag,dip,Options,false),
 	   SafeDelete <- default(option_or_flag,safe_delete,Options,false),
 	   Dtw <- default(flag,dtw,Options,false),
-	   ResOptions <- return(#options{table=TableName,dtw=Dtw}),
+	   ResOptions <- return(#options{table=TableName,dtw=Dtw,dip=Dip}),
 	   set_safe_delete(SafeDelete,ResOptions)
 	      ]).
 

@@ -10,7 +10,8 @@
 	  table :: table_name(),   % table_name
 	  % safe_delete :: boolean(), % Option tells to
 	  deleted_flag_name :: binary(), % DB field name where delete flag stores
-	  dtw :: boolean()  % Create internal Macroses
+	  dtw :: boolean(), % Create internal Macroses
+	  dip :: boolean()
 	 }).
 -record(field,{
 	  name :: field_name(), % Field name which will be used to access property
@@ -92,6 +93,7 @@
 -record(global_config,{
 	  configs_folder :: binary(),
 	  output_src_folder :: binary(),
+	  output_dip_src_folder :: binary(),
 	  config_suffix :: binary()
 	 }).
 

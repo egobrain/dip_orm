@@ -1,0 +1,63 @@
+%% -*- erlang -*-
+
+-spec get( Scope, 
+	%\ {% for index_field in index_fields %}
+	{{index_field.name|capfirst}}
+	%\    {% if not forloop.last %}
+	,
+	%|    {% endif %}
+	%\ {% endfor %}
+	) -> {ok, {{model_name|capfirst}} } | {error,Reason} when
+    Scope :: scope:scope(),
+    %| {% for index_field in index_fields %}
+    {{index_field.name|capfirst}} :: {{index_field.type}},
+    %| {% endfor %}
+    {{model_name|capfirst}} :: {{model_name}}:{{model_name}}(),
+    Reason :: db_error | undefined | timeout.
+get( Scope,
+  %\ {% for index_field in index_fields %}
+  {{index_field.name|capfirst}}
+  %\    {% if not forloop.last %}
+  ,
+  %|    {% endif %}
+  %\ {% endfor %}
+ ) ->
+    call(Scope, {get,
+	  %\ {% for index_field in index_fields %}
+	  %|     {% if not forloop.first %}
+	  %\
+		 ,
+	  %|     {% endif %}
+	  {{index_field.name|capfirst}}
+	  %\ {% endfor %}
+	 }).
+
+-spec find(Scope,Request) -> {ok, Result} | {error,Reason} when
+    Scope :: scope:scope(),
+    Request :: {Where,Order,Limit,Offset},
+    Where :: any(),
+    Order :: {{model_name}}:field() | { {{model_name}}:field(), asc | desc},
+    Limit :: non_neg_integer(),
+    Offset :: non_neg_integer(),
+    Result :: [{{model_name}}:{{model_name}}()],
+    Reason :: db_error | timeout.
+find(Scope,{Where,Order,Limit,Offset} = Req) ->
+    call(Scope,{find,Where,Order,Limit,Offset}).
+
+% @doc Save object in database and check required fields.
+-spec save(Scope,{{model_name|capfirst}}) -> {ok,{{model_name|capfirst}}} | {error,Reason} when
+    Scope :: scope:scope(),
+    {{model_name|capfirst}} :: {{model_name}}:{{model_name}}(),
+    Reason :: db_error | not_unique |
+              not_modified | [{ {{model_name}}:required_field() , required},...] | timeout.
+save(Scope,{{model_name|capfirst}}) ->
+    call(Scope,{save,{{model_name|capfirst}}}).
+
+% @doc Delete objects from Database.
+-spec delete(Scope,{{model_name|capfirst}}) -> ok | {error,Reason} when
+    Scope :: scope:scope(),
+    {{model_name|capfirst}} :: {{model_name}}:{{model_name}}(),
+    Reason :: db_error | timeout.
+delete(Scope,{{model_name|capfirst}}) ->
+    call(Scope,{delete,{{model_name|capfirst}}}).
+

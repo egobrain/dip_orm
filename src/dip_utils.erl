@@ -22,7 +22,9 @@
 
 	 map_filter/2,
 	 contains/2,
-	 append_unique/2
+	 append_unique/2,
+
+	 one/1
 	]).
 
 -export([template/2]).
@@ -178,6 +180,10 @@ append_unique(Value,List) ->
 	false -> [Value|List]
     end.
 
+one({ok,[One]}) ->
+    {ok,One};
+one({ok,[]}) -> {error,undefined};
+one({error,_} = Err) -> Err.
 
 %% ===================================================================
 %%% String

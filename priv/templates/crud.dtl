@@ -21,17 +21,18 @@ get(
   %|    {% endif %}
   %\ {% endfor %}
  ) ->
-    dip_orm(
-      select({{model}}),
-      where(
-	%| {% for index_field in index_fields %}
-	%|     {% if not forloop.first %}
-	%\
-	andalso
-	%|     {% endif %}
-	{{index_field.name}} == {{index_field.name|capfirst}}
-	%\ {% endfor %}
-	)).
+    dip_utils:one(
+      dip_orm(
+	select({{model}}),
+	where(
+	  %| {% for index_field in index_fields %}
+	  %|     {% if not forloop.first %}
+	  %\
+	  andalso
+	  %|     {% endif %}
+	  {{index_field.name}} == {{index_field.name|capfirst}}
+	  %\ {% endfor %}
+	 ))).
 
 -spec find(Request) -> {ok, Result} | {error,Reason} when
     Request :: {Where,Order,Limit,Offset},
@@ -41,15 +42,14 @@ get(
     Offset :: non_neg_integer(),
     Result :: [{{model_name}}()],
     Reason :: db_error.
-find({_Where,_Order,_Limit,_Offset}) ->
-    % dip_orm(
-    %   select({{model}}),
-    %   where(Where),
-    %   order_by(Order),
-    %   limit(Limit),
-    %   offset(Offset)
-    %  ).
-    ok.
+find({Where,Order,Limit,Offset}) ->
+    dip_orm(
+      select({{model}}),
+      where(Where),
+      order_by(Order),
+      limit(Limit),
+      offset(Offset)
+     ).
 
 
 % @doc Save object in database and check required fields.
@@ -60,8 +60,9 @@ save({{model_name|capfirst}}) ->
     do([error_m ||
 	   valid({{model_name|capfirst}}),
 	   ChangedFields <- get_changed_fields({{model_name|capfirst}}),
-	   save({{model_name|capfirst}},ChangedFields,is_new({{model_name|capfirst}}))
-		]).
+	   Result <- save({{model_name|capfirst}},ChangedFields,is_new({{model_name|capfirst}})),
+	   dip_utils:one(Result)
+	      ]).
 save({{model_name|capfirst}},ChangedFields,true) ->
     dip_orm(
       insert({{model}}),

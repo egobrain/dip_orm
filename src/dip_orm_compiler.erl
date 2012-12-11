@@ -37,13 +37,14 @@ models(RebarConfig,_AppFile) ->
     Config = element(3,RebarConfig),
     do([error_m ||
 	   GlobalConfig <- dip_orm_configs:get_global_config(Config),
-	   RawDBModelConfigs <- dip_orm_configs:get_db_model_config(Config),
-	   DBModelConfigs <- dip_utils:success_map(
+	   RawModels <- dip_orm_configs:get_db_model_config(Config),
+	   Models <- dip_utils:success_map(
 			       dip_orm_configs:get_config(_,GlobalConfig),
-			       RawDBModelConfigs),
-	   DBModelConfigs2 <- dip_orm_configs:fill_links(DBModelConfigs),
-	   write_db_models(DBModelConfigs2,GlobalConfig),
-	   dip_orm_config_file:write(dip_orm,DBModelConfigs2,GlobalConfig)
+			       RawModels),
+	   Models2 <- dip_orm_configs:fill_links(Models),
+	   fold(dip_orm_model_file:write(_,GlobalConfig),Models2),
+	   fold(dip_orm_dip_model_file:write(_,GlobalConfig),Models2),
+	   dip_orm_config_file:write(dip_orm,Models2,GlobalConfig)
 	  ]).
     
 %% ===================================================================
@@ -51,15 +52,14 @@ models(RebarConfig,_AppFile) ->
 %% ===================================================================
 
 
-write_db_models([],_GlobalConfig) ->
-    ok;
-write_db_models([Model|Rest],GlobalConfig) ->
-    case dip_orm_model_file:write(Model,GlobalConfig) of
-	ok ->
-	    write_db_models(Rest,GlobalConfig);
-	{error,Reason} ->
-	    {error,Reason}
+fold(_,[]) -> ok;
+fold(F,[H|T]) ->
+    case F(H) of
+	ok -> fold(F,T);
+	Err -> Err
     end.
+
+    
 
 %% ===================================================================
 %%% Internal functions
