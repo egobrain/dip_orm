@@ -1,53 +1,53 @@
 %% -*- erlang -*-
 
 % @doc Generate object from proplist with type checks. No require checks. Work with SYSTEM access privilegis.
--spec from_proplist(Proplist) -> {ok,{{model_name|capfirst}}} | {error,Reason} when
+-spec from_proplist(Proplist) -> {ok,{{model|capfirst}}} | {error,Reason} when
     Proplist :: [{atom(),field()}],
-    {{model_name|capfirst}} :: {{model_name}}(),
+    {{model|capfirst}} :: {{model}}(),
     Reason :: [params_error()].
 from_proplist(Proplist) ->
-    from_proplist(Proplist,#{{model_name}}{}).
+    from_proplist(Proplist,#{{module}}{}).
 
 % @doc Fill object from proplist with type checks. No require checks. Work with SYSTEM access privilegis.
--spec from_proplist(Proplist,{{model_name|capfirst}}) -> {ok,{{model_name|capfirst}}} | {error,Reason} when
+-spec from_proplist(Proplist,{{model|capfirst}}) -> {ok,{{model|capfirst}}} | {error,Reason} when
     Proplist :: [{atom(),field()}],
-    {{model_name|capfirst}} :: {{model_name}}(),
+    {{model|capfirst}} :: {{model}}(),
     Reason :: [params_error()].
-from_proplist(Proplist,{{model_name|capfirst}}) ->
-    dip_utils:error_writer_fold(fun from_proplist_/2,{{model_name|capfirst}},Proplist).
+from_proplist(Proplist,{{model|capfirst}}) ->
+    dip_utils:error_writer_fold(fun from_proplist_/2,{{model|capfirst}},Proplist).
 
 %| {% for f in setter_fields %}
       {% if f.system_can_write %}
-from_proplist_({ {{f.name}}, {{f.name|capfirst}} },{{model_name|capfirst}}) ->
+from_proplist_({ {{f.name}}, {{f.name|capfirst}} },{{model|capfirst}}) ->
     case dip_utils:valid_type({{f.type}},{{f.name|capfirst}}) of
-	{ok,Val} -> set_{{f.name}}(Val,{{model_name|capfirst}});
+	{ok,Val} -> set_{{f.name}}(Val,{{model|capfirst}});
 	{error,Description} -> {error,{ {{f.name}}, Description } }
     end;
 %|    {% else %}
-from_proplist_([{ {{f.name}},_}|Rest],_{{model_name|capfirst}}) -> {error, { {{f.name}},forbidden} };
+from_proplist_({ {{f.name}},_},_{{model|capfirst}}) -> {error, { {{f.name}},forbidden} };
 %|    {% endif %}
 %| {% endfor %}
-from_proplist_([{Name,_}|Rest],_{{model_name|capfirst}}) -> {error, {Name,unknown} }.
+from_proplist_({Name,_},_{{model|capfirst}}) -> {error, {Name,unknown} }.
 
 % @doc Generate object from proplist which keys are binary with type checks. No require checks. Work with USER access privilegis.
--spec from_bin_proplist(Proplist) -> {ok,{{model_name|capfirst}}} | {error,Reason} when
+-spec from_bin_proplist(Proplist) -> {ok,{{model|capfirst}}} | {error,Reason} when
     Proplist :: [{binary(),field()}],
-    {{model_name|capfirst}} :: {{model_name}}(),
+    {{model|capfirst}} :: {{model}}(),
     Reason :: [params_error()].
 from_bin_proplist(Proplist) ->
-    from_bin_proplist(Proplist,#{{model_name}}{}).
+    from_bin_proplist(Proplist,#{{module}}{}).
 
 % @doc Fill object from proplist which keys are binary with type checks. No require checks. Work with USER access privilegis.
--spec from_bin_proplist(Proplist,{{model_name|capfirst}}) -> {ok,{{model_name|capfirst}}} | {error,Reason} when
+-spec from_bin_proplist(Proplist,{{model|capfirst}}) -> {ok,{{model|capfirst}}} | {error,Reason} when
     Proplist :: [{binary(),field()}],
-    {{model_name|capfirst}} :: {{model_name}}(),
+    {{model|capfirst}} :: {{model}}(),
     Reason :: [params_error()].
-from_bin_proplist(Proplist,{{model_name|capfirst}}) ->
-    dip_utils:error_writer_fold(fun from_bin_proplist_/2,{{model_name|capfirst}},Proplist).
+from_bin_proplist(Proplist,{{model|capfirst}}) ->
+    dip_utils:error_writer_fold(fun from_bin_proplist_/2,{{model|capfirst}},Proplist).
 
 %| {% for f in setter_fields %}
 %|    {% if f.user_can_write %}
-from_bin_proplist_({ <<"{{f.name}}">>, {{f.name|capfirst}} },{{model_name|capfirst}}) ->
+from_bin_proplist_({ <<"{{f.name}}">>, {{f.name|capfirst}} },{{model|capfirst}}) ->
     Validator = validator({{f.name}}),
     Res = do([error_m ||
 		 Val <- dip_utils:valid_type({{f.type}},{{f.name|capfirst}}),
@@ -56,21 +56,21 @@ from_bin_proplist_({ <<"{{f.name}}">>, {{f.name|capfirst}} },{{model_name|capfir
 		    ]),
     case Res of
 	{ok,Val} ->
-	    set_{{f.name}}(Val,{{model_name|capfirst}});
+	    set_{{f.name}}(Val,{{model|capfirst}});
 	{error,Description} -> {error,{ {{f.name}}, Description } }
     end;
 %|    {% else %}
-from_bin_proplist_([{ <<"{{f.name}}">>,_}|Rest],{{model_name|capfirst}}) -> {error, { {{f.name}},forbidden} };
+from_bin_proplist_({ <<"{{f.name}}">>,_},{{model|capfirst}}) -> {error, { {{f.name}},forbidden} };
 %|    {% endif %}
 %| {% endfor %}
-from_bin_proplist_({ Name,_},{{model_name|capfirst}}) -> {error, {Name,unknown} }.
+from_bin_proplist_({ Name,_},{{model|capfirst}}) -> {error, {Name,unknown} }.
 
 % @doc Convert object to proplist.
--spec to_proplist({{model_name|capfirst}}) -> [{Field,FieldType}] when
-    {{model_name|capfirst}}::{{model_name}}(),
+-spec to_proplist({{model|capfirst}}) -> [{Field,FieldType}] when
+    {{model|capfirst}}::{{model}}(),
     Field :: field(),
     FieldType :: field_type().
-to_proplist({{model_name|capfirst}}) ->
+to_proplist({{model|capfirst}}) ->
     [
     
 %| {% for f in user_can_read_fields %}
@@ -78,7 +78,7 @@ to_proplist({{model_name|capfirst}}) ->
      %\
      ,
 %|      {% endif %}
-     { {{f.name}} , {{model_name|capfirst}}#{{model_name}}.{{f.name}} }
+     { {{f.name}} , {{model|capfirst}}#{{module}}.{{f.name}} }
 %| {% endfor %}
     ].
 
@@ -107,10 +107,10 @@ validator({{f.name}}) ->
 validator(_) ->
     {error,unknown_validator}.
 
-valid({{model_name|capfirst}}) ->
+valid({{model|capfirst}}) ->
     Data = [
 	    %| {% for f in fields %}
-	    { {{ f.name }}, validator({{f.name}}), {{model_name|capfirst}}#{{model_name}}.{{f.name}} }
+	    { {{ f.name }}, validator({{f.name}}), {{model|capfirst}}#{{module}}.{{f.name}} }
 	    %\    {% if not forloop.last %}
 	    ,
 	    %|    {% endif %}

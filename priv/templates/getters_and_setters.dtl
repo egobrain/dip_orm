@@ -1,47 +1,47 @@
 %% -*- erlang -*-
 % @doc Return new empty datatype with predefined properties
--spec new() -> {{model_name}}().
+-spec new() -> {{model}}().
 new() ->
-    #{{model_name}}{}.
+    #{{module}}{}.
 
 %| {% for f in fields %}
 %|    {% if f.has_getter %}
 
 % @doc Getter for {{f.name}}
--spec {{f.name}}({{model_name}}:{{model_name}}()) -> {{f.name|capfirst}}::{{f.type}}.
-{{f.name}}({{model_name|capfirst}}) ->
-    {{model_name|capfirst}}#{{model_name}}.{{f.name}}.
+-spec {{f.name}}({{model}}()) -> {{f.name|capfirst}}::{{f.type}}.
+{{f.name}}({{model|capfirst}}) ->
+    {{model|capfirst}}#{{module}}.{{f.name}}.
 %|    {% endif %}
 
 %|    {% if f.has_setter %}
 
 % @doc Setter for {{f.name}}
--spec set_{{f.name}}({{f.type}},{{model_name}}()) -> {ok,{{model_name|capfirst}}::{{model_name}}()}.
-set_{{f.name}}(Val,#{{model_name}}{ {{f.name}} = {{f.name|capfirst}} } = {{model_name|capfirst}}) ->
+-spec set_{{f.name}}({{f.type}},{{model}}()) -> {ok,{{model|capfirst}}::{{model}}()}.
+set_{{f.name}}(Val,#{{module}}{ {{f.name}} = {{f.name|capfirst}} } = {{model|capfirst}}) ->
     case Val of
 	{{f.name|capfirst}} ->
-	    {ok,{{model_name|capfirst}}};
+	    {ok,{{model|capfirst}}};
 	_ ->
-	    {ok,{{model_name|capfirst}}#{{model_name}}{ {{f.name}} = Val,{{f.name}}_changed=true } }
+	    {ok,{{model|capfirst}}#{{module}}{ {{f.name}} = Val,{{f.name}}_changed=true } }
     end.
 %|    {% endif %}
 %| {% endfor %}
 
 % @doc Check if structure wasn't saved in Database.
--spec is_new({{model_name|capfirst}} :: {{model_name}}()) -> boolean().
-is_new({{model_name|capfirst}}) ->
-    {{model_name|capfirst}}#{{model_name}}.'$is_new$'.
+-spec is_new({{model|capfirst}} :: {{model}}()) -> boolean().
+is_new({{model|capfirst}}) ->
+    {{model|capfirst}}#{{module}}.'$is_new$'.
 
 % {#
 % @doc Check if structure wasn't saved in Database.
--spec is_new({{model_name|capfirst}} :: {{model_name}}()) -> boolean().
-is_new({{model_name|capfirst}}) ->
+-spec is_new({{model|capfirst}} :: {{model}}()) -> boolean().
+is_new({{model|capfirst}}) ->
     
-    case {{model_name|capfirst}}#{{model_name}}.{{model_name}} of
+    case {{model|capfirst}}#{{module}}.{{model}} of
 	undefined ->
 	    true;
 	_ ->
-	    {{model_name|capfirst}}#{{model_name}}.{{options.index.name}}_changed =:= true
+	    {{model|capfirst}}#{{module}}.{{options.index.name}}_changed =:= true
     end.
 
 % #}

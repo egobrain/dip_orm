@@ -1,12 +1,12 @@
 %% -*- erlang -*-
 % This function uses for DB Insert and set manipulations,
 
-get_changed_fields({{model_name|capfirst}}) ->
+get_changed_fields({{model|capfirst}}) ->
     DBFields = [
 		%| {% for f in fields %}
 		{ {{f.name}},
-		  {{model_name|capfirst}}#{{model_name}}.{{f.name}}_changed,
-		  {{model_name|capfirst}}#{{model_name}}.{{f.name}}
+		  {{model|capfirst}}#{{module}}.{{f.name}}_changed,
+		  {{model|capfirst}}#{{module}}.{{f.name}}
 		 }
 		%\    {% if not forloop.last %}
 		,
@@ -26,9 +26,9 @@ get_changed_fields({{model_name|capfirst}}) ->
 
 %| {% for f in fields %}
 field_constructor({{f.name}}) ->
-    fun(Binary,{{model_name|capfirst}}) ->
+    fun(Binary,{{model|capfirst}}) ->
 	    Value = dip_db:binary_to_{{f.db_type}}(Binary),
-	    {{model_name|capfirst}}#{{model_name}}{ {{f.name}} = Value }
+	    {{model|capfirst}}#{{module}}{ {{f.name}} = Value }
     end
 %|    {% if not forloop.last %}
 %\
@@ -53,7 +53,7 @@ constructor() ->
 constructor(Fields) ->
     Constractors = [field_constructor(Field) || Field <- Fields],
     fun(Tuple) ->
-	    Model = #{{model_name}}{
+	    Model = #{{module}}{
 	      %| {% for f in write_only_fields %}
 	      {{f.name}} = '$write_only_stumb$',
 	      %| {% endfor %}
@@ -64,7 +64,7 @@ constructor(Fields) ->
 	    Res = dip_utils:constructors_fold(ArgList,Constractors,Model),
 	    InitFuns = [
 	    %|    {% for ci in custom_init_fields %}
-			fun(M) -> M#{{model_name}}{ {{ci.name}} = {{ci.name}}_init(M) } end
+			fun(M) -> M#{{module}}{ {{ci.name}} = {{ci.name}}_init(M) } end
 			%\ {% if not forloop.last %}
 			,
 			%| {% endif %}
@@ -101,7 +101,11 @@ db_short_field_opts(FieldName) ->
 
 %| {% if delete_flag %}
 append_safe_delete(Where) ->
-    {'andalso',{deleted_flag," \"{{table_name}}\".\"{{f.deleted_flag}}\" "}, Where};
+    Req = {delete_flag," \"{{table_name}}\".\"{{delete_flag}}\" = FALSE"},
+    case Where of
+	undefined -> Req;
+	_ -> {'andalso',Req,Where}
+    end.
 %| {% else %}
 append_safe_delete(Where) -> Where.
 %| {% endif %}
@@ -121,7 +125,7 @@ link_sql(Model) ->
 
 safe_delete_flag() ->
     %| {% if delete_flag %}
-    "\"{{table_name}}\".\"{{delete_flag}}\"".
+    "\"{{delete_flag}}\"".
     %| {% else %}
     undefined.
     %| {% endif %}

@@ -1,8 +1,11 @@
 %% -*- erlang -*-
 
 call(Scope,Request) ->
-    {ok,Ticket} = scope:ticket(Scope),
-    dip_worker:call(Ticket,{?MODULE,Scope,Request}).
+    dip_worker:call(scope:ticket(Scope),{?MODULE,Scope,Request}).
+
+
+notify(EventType,Data,#user_state{event_server=EPid}) ->
+    gen_event:notify(EPid,{ {{model}} ,EventType,Data}).
 
 -spec handle(Request,Scope,State) -> {ok, State} | {ok, Result, State} |  {error,Reason} when
     Request :: term(),
@@ -19,7 +22,7 @@ handle({get,
 	%\ {% endfor %}
        },Scope,UserState) ->
     do([error_m ||
-	   Result <- db_user:get(
+	   Result <- {{module}}:get(
 		       %\ {% for index_field in index_fields %}
 		       {{index_field.name|capfirst}}
 		       %\    {% if not forloop.last %}
@@ -28,17 +31,23 @@ handle({get,
 		       %\ {% endfor %}
 		      ),
 	   {ok,Result,UserState}]);
-handle({save,{{model_name|capfirst}} },Scope,UserState) ->
+handle({save,{{model|capfirst}} },Scope,UserState) ->
     do([error_m ||
-	   Result <- {{model_name}}:save({{model_name|capfirst}}),
+	   Result <- {{module}}:save({{model|capfirst}}),
+	   EventType = case is_new({{model|capfirst}}) of
+			   true -> created;
+			   false -> updated
+		       end,
+	   notify(EventType,Result,UserState),
 	   {ok,Result,UserState}]);
 handle({find,Req},Scope,UserState) ->
     do([error_m ||
-	   Result <- {{model_name}}:find(Req),
+	   Result <- {{module}}:find(Req),
 	   {ok,Result,UserState}]);
-handle({delete,{{model_name|capfirst}}},Scope,UserState) ->
+handle({delete,{{model|capfirst}}},Scope,UserState) ->
     do([error_m ||
-	   Result <- {{model_name}}:delete({{model_name|capfirst}}),
+	   Result <- {{module}}:delete({{model|capfirst}}),
+	   notify(deleted,{{model|capfirst}},UserState),
 	   {ok,Result,UserState}]);
 handle(Request,Scope,UserState) ->
     {error,undef_call}.

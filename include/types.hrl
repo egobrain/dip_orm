@@ -11,7 +11,9 @@
 	  % safe_delete :: boolean(), % Option tells to
 	  deleted_flag_name :: binary(), % DB field name where delete flag stores
 	  dtw :: boolean(), % Create internal Macroses
-	  dip :: boolean()
+	  dip :: boolean(),
+	  db_module_prefix :: binary(),
+	  dip_module_prefix :: binary()
 	 }).
 -record(field,{
 	  name :: field_name(), % Field name which will be used to access property

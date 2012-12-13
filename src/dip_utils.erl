@@ -180,10 +180,8 @@ append_unique(Value,List) ->
 	false -> [Value|List]
     end.
 
-one({ok,[One]}) ->
-    {ok,One};
-one({ok,[]}) -> {error,undefined};
-one({error,_} = Err) -> Err.
+one([One]) -> {ok,One};
+one([]) -> {error,undefined}.
 
 %% ===================================================================
 %%% String

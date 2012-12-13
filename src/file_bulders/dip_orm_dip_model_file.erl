@@ -20,8 +20,8 @@
 %%% API
 %% ===================================================================
 
-write(#model{name=Name,options=#options{dip=true}} = Model, #global_config{output_dip_src_folder=OutFolder}) ->
-    ModuleName = dip_orm_configs:model_to_dip_module(Name),
+write(#model{options=#options{dip=true}} = Model, #global_config{output_dip_src_folder=OutFolder}) ->
+    ModuleName = dip_orm_configs:model(dip_module,Model),
     IsNew = not dip_orm_file:check_exists(ModuleName,OutFolder),
 
     RequiredContent = [
@@ -30,6 +30,8 @@ write(#model{name=Name,options=#options{dip=true}} = Model, #global_config{outpu
 		       dip_orm_ast:attribute(compile,[{parse_transform,cut}]),
 		       dip_orm_ast:attribute(compile,[{parse_transform,dip_orm}]),
 		       dip_orm_ast:attribute(include,["log.hrl"]),
+		       dip_orm_ast:attribute(include,["user_thread.hrl"]),
+		       
 
 		       dip_orm_ast:spacer("Exports"),
 		       dip_orm_ast:export([{handle,3}]),
@@ -89,32 +91,35 @@ write(_,_) -> ok.
 %% ===================================================================
 
 
-render_crud(#model{name=Name,fields=Fields}) ->
-    ModuleName = dip_orm_configs:model_to_module(Name),
+render_crud(#model{name=Name,fields=Fields} = Model) ->
+    Module = dip_orm_configs:model(db_module,Model),
     IndexFields = ?DBM:get_index_fields(Fields),
     {ok,Content} =  dip_crud_dtl:render([{model,Name},
-					 {model_name,ModuleName},
+					 {module,Module},
 					 {index_fields,IndexFields}
 				    ]),
     dip_orm_ast:raw(Content).
 
-render_getters_and_setters(#model{name=Name,fields=Fields}) ->
-    ModuleName = dip_orm_configs:model_to_module(Name),
+render_getters_and_setters(#model{name=Name,fields=Fields} = Model) ->
+    Module = dip_orm_configs:model(db_module,Model),
     RecordFields = ?DBM:get_getters_and_setters_fields(Fields),
-    {ok,Content} = dip_getters_and_setters_dtl:render([{model_name,ModuleName},
+    {ok,Content} = dip_getters_and_setters_dtl:render([{model,Name},
+						       {module,Module},
 						       {fields,RecordFields}]),
     dip_orm_ast:raw(Content).
 
 
-render_data_validators(#model{name=Name}) ->
-    ModuleName = dip_orm_configs:model_to_module(Name),
-    {ok,Content} = dip_data_validators_dtl:render([{model_name,ModuleName}]),
+render_data_validators(#model{name=Name} = Model) ->
+    Module = dip_orm_configs:model(db_module,Model),
+    {ok,Content} = dip_data_validators_dtl:render([{model,Name},
+						   {module,Module}]),
     dip_orm_ast:raw(Content).
 
-render_footer(#model{name=Name,fields=Fields}) ->
-    ModuleName = dip_orm_configs:model_to_module(Name),
+render_footer(#model{name=Name,fields=Fields} = Model) ->
+    Module = dip_orm_configs:model(db_module,Model),
     IndexFields = ?DBM:get_index_fields(Fields),
-    {ok,Content} = dip_footer_dtl:render([{model_name,ModuleName},
+    {ok,Content} = dip_footer_dtl:render([{model,Name},
+					  {module,Module},
 					  {index_fields,IndexFields}
 					 ]),
     dip_orm_ast:raw(Content).    

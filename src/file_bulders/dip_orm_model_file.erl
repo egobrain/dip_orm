@@ -28,15 +28,15 @@
 %%% API
 %% ===================================================================
 
-write(#model{name=Name} = Model, #global_config{output_src_folder=OutFolder}) ->
-    ModuleName = dip_orm_configs:model_to_module(Name),
+write(Model, #global_config{output_src_folder=OutFolder}) ->
+    ModuleName = dip_orm_configs:model(db_module,Model),
     IsNew = not dip_orm_file:check_exists(ModuleName,OutFolder),
 
     RequiredContent = [
 		       dip_orm_ast:auto(start),
+		       dip_orm_ast:attribute(compile,[{parse_transform,dip_orm}]),
 		       dip_orm_ast:attribute(compile,[{parse_transform,do}]),
 		       dip_orm_ast:attribute(compile,[{parse_transform,cut}]),
-		       dip_orm_ast:attribute(compile,[{parse_transform,dip_orm}]),
 		       dip_orm_ast:attribute(include,["log.hrl"]),
 
 		       dip_orm_ast:spacer("TYPES"),
@@ -109,11 +109,13 @@ write(#model{name=Name} = Model, #global_config{output_src_folder=OutFolder}) ->
 %%% Types
 %% ===================================================================
 
-render_types(#model{name=Name,fields=Fields}) ->
-    ModuleName = dip_orm_configs:model_to_module(Name),
+render_types(#model{name=Name,fields=Fields} = Model) ->
+    Module = dip_orm_configs:model(db_module,Model),
     RecordFields = get_types_fields(Fields),
     RequiredFields = get_required_fields(Fields),
-    {ok,Content} = db_types_dtl:render([{model_name,ModuleName},
+    {ok,Content} = db_types_dtl:render([
+					{model,Name},
+					{module,Module},
 					{fields,RecordFields},
 					{required_fields,RequiredFields}
 				       ]),
@@ -184,10 +186,11 @@ get_exports([#field{name=Name,
 %%% Getters and setters
 %% ===================================================================
     
-render_getters_and_setters(#model{name=Name,fields=Fields}) ->
-    ModuleName = dip_orm_configs:model_to_module(Name),
+render_getters_and_setters(#model{name=Name,fields=Fields} = Model) ->
+    Module = dip_orm_configs:model(db_module,Model),
     RecordFields = get_getters_and_setters_fields(Fields),
-    {ok,Content} = getters_and_setters_dtl:render([{model_name,ModuleName},
+    {ok,Content} = getters_and_setters_dtl:render([{model,Name},
+						   {module,Module},
 						   {fields,RecordFields}]),
     dip_orm_ast:raw(Content).
 
@@ -222,11 +225,11 @@ get_getters_and_setters_fields(Fields) ->
 %%% CRUD. DB operations
 %% ===================================================================
 
-render_crud(#model{name=Name,fields=Fields}) ->
-    ModuleName = dip_orm_configs:model_to_module(Name),
+render_crud(#model{name=Name,fields=Fields} = Model) ->
+    Module = dip_orm_configs:model(db_module,Model),
     IndexFields = get_index_fields(Fields),
     {ok,Content} =  crud_dtl:render([{model,Name},
-				     {model_name,ModuleName},
+				     {module,Module},
 				     {index_fields,IndexFields}
 				    ]),
     dip_orm_ast:raw(Content).
@@ -259,12 +262,13 @@ index_fields_count(#model{fields=Fields}) ->
 %%% Validators/Data setters
 %% ===================================================================
 
-render_data_validators(#model{name=Name,fields=Fields}) ->
-    ModuleName = dip_orm_configs:model_to_module(Name),
+render_data_validators(#model{name=Name,fields=Fields} = Model) ->
+    Module = dip_orm_configs:model(db_module,Model),
     ValidatorFields = get_validator_fields(Fields),
     SetterFields = get_setter_fields(Fields),
     FieldsWhichUserCanRead = get_user_can_read_fields(Fields),
-    {ok,Content} = data_validators_dtl:render([{model_name,ModuleName},
+    {ok,Content} = data_validators_dtl:render([{model,Name},
+					       {module,Module},
 					       {fields,ValidatorFields},
 					       {setter_fields,SetterFields},
 					       {user_can_read_fields,FieldsWhichUserCanRead}
@@ -330,7 +334,7 @@ get_user_can_read_fields(Fields) ->
 %% ===================================================================
 
 render_internal_functions(#model{name=Name,fields=Fields} = Model) ->
-    ModuleName = dip_orm_configs:model_to_module(Name),
+    Module = dip_orm_configs:model(db_module,Model),
     InternalFields = get_internal_function_fields(Fields),
     CustomInitFields = get_custom_init_fields(Fields),
     WriteOnlyFields = get_write_only_fields(Fields),
@@ -340,7 +344,8 @@ render_internal_functions(#model{name=Name,fields=Fields} = Model) ->
     DbFields = get_db_read_fields(Fields),
     Links = get_db_links(Model),
     {ok,Content} = internal_functions_dtl:render([
-						  {model_name,ModuleName},
+						  {model,Name},
+						  {module,Module},
 						  {table_name,TableName},
 						  {fields,InternalFields},
 						  {db_fields,DbFields},
@@ -399,7 +404,7 @@ get_custom_init_fields(Fields) ->
 
 get_db_links(#model{links=Links}) ->
     [[{remote_model,dip_orm_configs:link(remote_model,L)},
-      {sql,iolist_to_binary(dip_orm_configs:link_to_join(L))}] || L <- Links].
+      {sql,io_to_binary(dip_orm_configs:link_to_join(L))}] || L <- Links].
 
 %% ===================================================================
 %%% Internal helpers
@@ -493,3 +498,5 @@ binary_to_atom(Bin) ->
 esc(Str) ->
     ["\\\"",Str,"\\\""].
 
+io_to_binary(List) ->
+    list_to_binary(dip_utils:template("~s",[List])).

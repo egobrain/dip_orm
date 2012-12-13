@@ -23,7 +23,7 @@
 	  type :: select | insert | update | delete,
 	  target_model :: dip_orm_config:models(),
 
-	  where = ast(atom,undefined),
+	  where = {ast,ast(atom,undefined)},
 	  order_by = ast(atom,undefined) :: { dip_orm_configs:model_name(),
 					      dip_orm_configs:field_name(),
 					      asc | desc },
@@ -44,7 +44,7 @@ parse_transform(Ast,_Options)->
 	      {ok,ResAst} ->
 		  ResAst;
 	      {error,Errors} ->
-		  ?DBG("Errors: ~p",[lists:flatten(Errors)]),
+		  % ?DBG("Errors: ~p",[lists:flatten(Errors)]),
 		  [error_to_ast(Line,Reason) || {Line,Reason} <- lists:flatten(Errors)]
 	  end,
     % ?DBG("~p~n<<<<~n",[Res]),
@@ -112,11 +112,13 @@ parse(Node) when is_tuple(Node) andalso size(Node) > 2 ->
 parse(Node) ->
     {ok,Node}.
 
-parse_efind([H|_] = Args,ModelName) ->
+parse_efind([_|_] = Args,ModelName) ->
     {ok,Model} = dip_orm:model_config(ModelName),
     NewReq = #request{type=select,target_model=Model},
     do([error_m ||
+	   ?DBG(" === >Args ~p",[ModelName]),
 	   {RestArgs,Req} <- set_where(Args,NewReq),
+	   ?DBG("< === Args ~p",[Req#request.where]),
 	   {RestArgs2,Req2} <- set_order_by(RestArgs,Req),
 	   {RestArgs3,Req3} <- set_limit(RestArgs2,Req2),
 	   {RestArgs4,Req4} <- set_offset(RestArgs3,Req3),
@@ -125,7 +127,7 @@ parse_efind([H|_] = Args,ModelName) ->
 	   return(Ast)
 	      ]).
 
-parse_dip_efind(Scope,[H|_] = Args,ModelName) ->
+parse_dip_efind(Scope,[_|_] = Args,ModelName) ->
     {ok,Model} = dip_orm:model_config(ModelName),
     NewReq = #request{type=select,target_model=Model},
     do([error_m ||
@@ -293,7 +295,7 @@ set_where([{call,_Line,{atom,_Line2,where},WhereArgs}|RestArgs],Req) ->
 	   {Where,Req2} <- transform(WhereArgs,Req),
 	   return({RestArgs, Req2#request{where = Where}})
 	      ]);
-set_where([_Ast|RestArgs],Req) ->
+set_where([_Ast|RestArgs] = T,Req) ->
     {ok,{RestArgs,Req}};
 set_where([],Req) ->
     {ok,{[],Req}}.
@@ -479,9 +481,7 @@ request_to_efind_ast(#request{type=select,
 			      order_by=OrderAst,
 			      limit = LimitAst,
 			      offset = OffsetAst}) ->
-    TargetModelName = dip_orm_configs:model(name,Model),
-    % {ok,ModuleName} = dip_orm:model_to_module(list_to_atom(binary_to_list(TargetModelName))),
-    ModuleName = list_to_atom(binary_to_list(dip_orm_configs:model_to_module(TargetModelName))),
+    ModuleName = dip_orm_configs:model(db_module,Model),
     WhereAst = where_to_ast(Where),
     Res = ast(function,ModuleName,find,
 	      [
@@ -501,8 +501,7 @@ request_to_dip_efind_ast(ScopeAst,#request{type=select,
 					   order_by=OrderAst,
 					   limit = LimitAst,
 					   offset = OffsetAst}) ->
-    TargetModelName = dip_orm_configs:model(name,Model),
-    ModuleName = list_to_atom(binary_to_list(dip_orm_configs:model_to_dip_module(TargetModelName))),
+    ModuleName = dip_orm_configs:model(dip_module,Model),
     WhereAst = where_to_ast(Where),
     Res = ast(function,ModuleName,find,
 	      [

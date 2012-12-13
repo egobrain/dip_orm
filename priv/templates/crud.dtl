@@ -7,11 +7,11 @@
 	,
 	%|    {% endif %}
 	%\ {% endfor %}
-	) -> {ok, {{model_name|capfirst}} } | {error,Reason} when
+	) -> {ok, {{model|capfirst}} } | {error,Reason} when
     %| {% for index_field in index_fields %}
     {{index_field.name|capfirst}} :: {{index_field.type}},
     %| {% endfor %}
-    {{model_name|capfirst}} :: {{model_name}}(),
+    {{model|capfirst}} :: {{model}}(),
     Reason :: db_error | undefined.
 get(
   %\ {% for index_field in index_fields %}
@@ -21,18 +21,20 @@ get(
   %|    {% endif %}
   %\ {% endfor %}
  ) ->
-    dip_utils:one(
-      dip_orm(
-	select({{model}}),
-	where(
-	  %| {% for index_field in index_fields %}
-	  %|     {% if not forloop.first %}
-	  %\
-	  andalso
-	  %|     {% endif %}
-	  {{index_field.name}} == {{index_field.name|capfirst}}
-	  %\ {% endfor %}
-	 ))).
+    do([error_m ||
+	   Result <- dip_orm(
+		       select({{model}}),
+		       where(
+			 %| {% for index_field in index_fields %}
+			 %|     {% if not forloop.first %}
+				       %\
+			 andalso
+			 %|     {% endif %}
+			 {{index_field.name}} == {{index_field.name|capfirst}}
+			 %\ {% endfor %}
+			)),
+	   dip_utils:one(Result)
+	      ]).
 
 -spec find(Request) -> {ok, Result} | {error,Reason} when
     Request :: {Where,Order,Limit,Offset},
@@ -40,7 +42,7 @@ get(
     Order :: field() | {field(), asc | desc},
     Limit :: non_neg_integer(),
     Offset :: non_neg_integer(),
-    Result :: [{{model_name}}()],
+    Result :: [{{model}}()],
     Reason :: db_error.
 find({Where,Order,Limit,Offset}) ->
     dip_orm(
@@ -53,22 +55,22 @@ find({Where,Order,Limit,Offset}) ->
 
 
 % @doc Save object in database and check required fields.
--spec save({{model_name|capfirst}}) -> {ok,{{model_name|capfirst}}} | {error,Reason} when
-    {{model_name|capfirst}} :: {{model_name}}(),
+-spec save({{model|capfirst}}) -> {ok,{{model|capfirst}}} | {error,Reason} when
+    {{model|capfirst}} :: {{model}}(),
     Reason :: db_error | not_unique | not_modified | [{required_field() , required},...].
-save({{model_name|capfirst}}) ->
+save({{model|capfirst}}) ->
     do([error_m ||
-	   valid({{model_name|capfirst}}),
-	   ChangedFields <- get_changed_fields({{model_name|capfirst}}),
-	   Result <- save({{model_name|capfirst}},ChangedFields,is_new({{model_name|capfirst}})),
+	   valid({{model|capfirst}}),
+	   ChangedFields <- get_changed_fields({{model|capfirst}}),
+	   Result <- save({{model|capfirst}},ChangedFields,is_new({{model|capfirst}})),
 	   dip_utils:one(Result)
 	      ]).
-save({{model_name|capfirst}},ChangedFields,true) ->
+save({{model|capfirst}},ChangedFields,true) ->
     dip_orm(
       insert({{model}}),
       values(ChangedFields)
      );
-save({{model_name|capfirst}},ChangedFields,false) ->
+save({{model|capfirst}},ChangedFields,false) ->
     dip_orm(
       update({{model}}),
       values(ChangedFields),
@@ -78,15 +80,15 @@ save({{model_name|capfirst}},ChangedFields,false) ->
 	%\
 	andalso
 	%|     {% endif %}
-	{{index_field.name}} == {{model_name|capfirst}}#{{model_name}}.{{index_field.name}}
+	{{index_field.name}} == {{model|capfirst}}#{{module}}.{{index_field.name}}
 	%\ {% endfor %}
        )).
 
 % @doc Delete objects from Database.
--spec delete({{model_name|capfirst}}) -> ok | {error,Reason} when
-    {{model_name|capfirst}} :: {{model_name}}(),
+-spec delete({{model|capfirst}}) -> ok | {error,Reason} when
+    {{model|capfirst}} :: {{model}}(),
     Reason :: db_error.
-delete({{model_name|capfirst}}) ->
+delete({{model|capfirst}}) ->
     dip_orm(
       delete({{model}}),
       where(
@@ -95,7 +97,7 @@ delete({{model_name|capfirst}}) ->
 	%\
 	andalso
 	%|     {% endif %}
-	{{index_field.name}} == {{model_name|capfirst}}#{{model_name}}.{{index_field.name}}
+	{{index_field.name}} == {{model|capfirst}}#{{module}}.{{index_field.name}}
 	%\ {% endfor %}
        )).
 

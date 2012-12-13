@@ -76,13 +76,13 @@ parse_transform_function() ->
 					 [FunctionBody])]),
     erl_syntax:revert(FunctionAST).
 
-model_to_module_fucntions(Models) ->    
+model_to_module_fucntions(Models) ->
     erl_syntax:function(erl_syntax:atom(model_to_module),
 			[erl_syntax:clause(
 			   [erl_syntax:atom(model_name(Model))],
 			   none,
 			   [erl_syntax:tuple([erl_syntax:atom(ok),
-					      erl_syntax:atom(module_name(Model))])]
+					      erl_syntax:atom(dip_orm_configs:model(db_module,Model))])]
 			  ) || Model <- Models]++
 			[erl_syntax:clause(
 			   [erl_syntax:variable("Model")],
@@ -97,7 +97,7 @@ model_to_module_fucntions(Models) ->
 module_to_model_fucntions(Models) ->
     erl_syntax:function(erl_syntax:atom(module_to_model),
 			[erl_syntax:clause(
-			   [erl_syntax:atom(module_name(Model))],
+			   [erl_syntax:atom(dip_orm_configs:model(db_module,Model))],
 			   none,
 			   [erl_syntax:tuple([erl_syntax:atom(ok),
 					      erl_syntax:atom(model_name(Model))])]
@@ -116,7 +116,7 @@ dip_module_to_model_fucntions(Models) ->
     DipModels = get_dip_models(Models),
     erl_syntax:function(erl_syntax:atom(dip_module_to_model),
 			[erl_syntax:clause(
-			   [erl_syntax:atom(dip_module_name(Model))],
+			   [erl_syntax:atom(dip_orm_configs:model(dip_module,Model))],
 			   none,
 			   [erl_syntax:tuple([erl_syntax:atom(ok),
 					      erl_syntax:atom(model_name(Model))])]
@@ -131,17 +131,6 @@ dip_module_to_model_fucntions(Models) ->
 							       ])]
 					   )])]).
     
-module_name(Model) ->    
-    ModelNameBin = dip_orm_configs:model(name,Model),
-    DbModelNameBin = dip_orm_configs:model_to_module(ModelNameBin),
-    binary_to_list(DbModelNameBin).
-
-dip_module_name(Model) ->    
-    ModelNameBin = dip_orm_configs:model(name,Model),
-    DipModelNameBin = dip_orm_configs:model_to_dip_module(ModelNameBin),
-    binary_to_list(DipModelNameBin).
-
-
 
 get_dip_models(Modules) ->
     FMapFun = fun(Module) ->

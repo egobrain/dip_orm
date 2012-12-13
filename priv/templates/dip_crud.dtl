@@ -7,12 +7,12 @@
 	,
 	%|    {% endif %}
 	%\ {% endfor %}
-	) -> {ok, {{model_name|capfirst}} } | {error,Reason} when
+	) -> {ok, {{model|capfirst}} } | {error,Reason} when
     Scope :: scope:scope(),
     %| {% for index_field in index_fields %}
     {{index_field.name|capfirst}} :: {{index_field.type}},
     %| {% endfor %}
-    {{model_name|capfirst}} :: {{model_name}}:{{model_name}}(),
+    {{model|capfirst}} :: {{module}}:{{model}}(),
     Reason :: db_error | undefined | timeout.
 get( Scope,
   %\ {% for index_field in index_fields %}
@@ -36,28 +36,28 @@ get( Scope,
     Scope :: scope:scope(),
     Request :: {Where,Order,Limit,Offset},
     Where :: any(),
-    Order :: {{model_name}}:field() | { {{model_name}}:field(), asc | desc},
+    Order :: {{module}}:field() | { {{module}}:field(), asc | desc},
     Limit :: non_neg_integer(),
     Offset :: non_neg_integer(),
-    Result :: [{{model_name}}:{{model_name}}()],
+    Result :: [{{module}}:{{model}}()],
     Reason :: db_error | timeout.
-find(Scope,{Where,Order,Limit,Offset} = Req) ->
-    call(Scope,{find,Where,Order,Limit,Offset}).
+find(Scope,{_Where,_Order,_Limit,_Offset} = Req) ->
+    call(Scope,{find,Req}).
 
 % @doc Save object in database and check required fields.
--spec save(Scope,{{model_name|capfirst}}) -> {ok,{{model_name|capfirst}}} | {error,Reason} when
+-spec save(Scope,{{model|capfirst}}) -> {ok,{{model|capfirst}}} | {error,Reason} when
     Scope :: scope:scope(),
-    {{model_name|capfirst}} :: {{model_name}}:{{model_name}}(),
+    {{model|capfirst}} :: {{module}}:{{model}}(),
     Reason :: db_error | not_unique |
-              not_modified | [{ {{model_name}}:required_field() , required},...] | timeout.
-save(Scope,{{model_name|capfirst}}) ->
-    call(Scope,{save,{{model_name|capfirst}}}).
+              not_modified | [{ {{module}}:required_field() , required},...] | timeout.
+save(Scope,{{model|capfirst}}) ->
+    call(Scope,{save,{{model|capfirst}}}).
 
 % @doc Delete objects from Database.
--spec delete(Scope,{{model_name|capfirst}}) -> ok | {error,Reason} when
+-spec delete(Scope,{{model|capfirst}}) -> ok | {error,Reason} when
     Scope :: scope:scope(),
-    {{model_name|capfirst}} :: {{model_name}}:{{model_name}}(),
+    {{model|capfirst}} :: {{module}}:{{model}}(),
     Reason :: db_error | timeout.
-delete(Scope,{{model_name|capfirst}}) ->
-    call(Scope,{delete,{{model_name|capfirst}}}).
+delete(Scope,{{model|capfirst}}) ->
+    call(Scope,{delete,{{model|capfirst}}}).
 

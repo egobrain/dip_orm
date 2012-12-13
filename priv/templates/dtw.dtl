@@ -1,8 +1,7 @@
 %% -*- erlang -*-
 
--define(SELECT_ALL_FROM,"SELECT {{ fields_str }} FROM ").
--define(FIELDS_SQL, " {{fields_str}} "),
--define(SAFE_DELETE," {{ safe_delete_str }}").
+-define(FIELDS_SQL, " {{fields_str}} ").
+-define(SAFE_DELETE," {{safe_delete_str}}").
 
 %% Macros for types declarations.
 %|    {% for f in fields %}

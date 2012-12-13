@@ -1,28 +1,28 @@
 %% -*- erlang -*-
 % @doc Return new empty datatype with predefined properties
--spec new() -> {{model_name}}:{{model_name}}().
+-spec new() -> {{module}}:{{model}}().
 new() ->
-    {{model_name}}:new().
+    {{module}}:new().
 
 %| {% for f in fields %}
 %|    {% if f.has_getter %}
 
 % @doc Getter for {{f.name}}
--spec {{f.name}}({{model_name}}:{{model_name}}()) -> {{f.type}}.
-{{f.name}}({{model_name|capfirst}}) ->
-    {{model_name}}:{{f.name}}({{model_name|capfirst}}).
+-spec {{f.name}}({{module}}:{{model}}()) -> {{f.type}}.
+{{f.name}}({{model|capfirst}}) ->
+    {{module}}:{{f.name}}({{model|capfirst}}).
 %|    {% endif %}
 
 %|    {% if f.has_setter %}
 
 % @doc Setter for {{f.name}}
--spec set_{{f.name}}({{f.type}},{{model_name}}:{{model_name}}()) -> {ok,{{model_name}}:{{model_name}}()}.
-set_{{f.name}}(Val,{{model_name|capfirst}}) ->
-    {{model_name}}:set_{{f.name}}(Val,{{model_name|capfirst}}).
+-spec set_{{f.name}}({{f.type}},{{module}}:{{model}}()) -> {ok,{{module}}:{{model}}()}.
+set_{{f.name}}(Val,{{model|capfirst}}) ->
+    {{module}}:set_{{f.name}}(Val,{{model|capfirst}}).
 %|    {% endif %}
 %| {% endfor %}
 
 % @doc Check if structure wasn't saved in Database.
--spec is_new({{model_name|capfirst}} :: {{model_name}}:{{model_name}}()) -> boolean().
-is_new({{model_name|capfirst}}) ->
-    {{model_name}}:is_new({{model_name|capfirst}}).
+-spec is_new({{model|capfirst}} :: {{module}}:{{model}}()) -> boolean().
+is_new({{model|capfirst}}) ->
+    {{module}}:is_new({{model|capfirst}}).

@@ -72,7 +72,7 @@ insert(ModelName,Values) ->
     SQL  = ["INSERT INTO ",TableSQL,"(",NamesSQL,") VALUES (",ValuesSQL,") RETURNING ",FieldsSQL],
     case dip_db:q(lists:flatten(SQL),
 		  lists:flatten(Args)) of
-	{ok,_Columns,Rows} ->
+	{ok,_Count,_Columns,Rows} ->
 	    {ok,[Constructor(Row) || Row <- Rows]};
 	{error,Reason} ->
 	    {error,Reason}

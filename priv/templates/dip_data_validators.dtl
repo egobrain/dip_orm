@@ -1,53 +1,53 @@
 %% -*- erlang -*-
 
 % @doc Generate object from proplist with type checks. No require checks. Work with SYSTEM access privilegis.
--spec from_proplist(Proplist) -> {ok,{{model_name|capfirst}}} | {error,Reason} when
-    Proplist :: [{atom(),{{model_name}}:field()}],
-    {{model_name|capfirst}} :: {{model_name}}:{{model_name}}(),
-    Reason :: [{{model_name}}:params_error()].
+-spec from_proplist(Proplist) -> {ok,{{model|capfirst}}} | {error,Reason} when
+    Proplist :: [{atom(),{{module}}:field()}],
+    {{model|capfirst}} :: {{module}}:{{model}}(),
+    Reason :: [{{module}}:params_error()].
 from_proplist(Proplist) ->
-    {{model_name}}:from_proplist(Proplist).
+    {{module}}:from_proplist(Proplist).
 
 % @doc Fill object from proplist with type checks. No require checks. Work with SYSTEM access privilegis.
--spec from_proplist(Proplist,{{model_name|capfirst}}) -> {ok,{{model_name|capfirst}}} | {error,Reason} when
-    Proplist :: [{atom(),{{model_name}}:field()}],
-    {{model_name|capfirst}} :: {{model_name}}:{{model_name}}(),
-    Reason :: [{{model_name}}:params_error()].
-from_proplist(Proplist,{{model_name|capfirst}}) ->
-    {{model_name}}:from_proplist(Proplist,{{model_name|capfirst}}).
+-spec from_proplist(Proplist,{{model|capfirst}}) -> {ok,{{model|capfirst}}} | {error,Reason} when
+    Proplist :: [{atom(),{{module}}:field()}],
+    {{model|capfirst}} :: {{module}}:{{model}}(),
+    Reason :: [{{module}}:params_error()].
+from_proplist(Proplist,{{model|capfirst}}) ->
+    {{module}}:from_proplist(Proplist,{{model|capfirst}}).
 
 % @doc Generate object from proplist which keys are binary with type checks. No require checks. Work with USER access privilegis.
--spec from_bin_proplist(Proplist) -> {ok,{{model_name|capfirst}}} | {error,Reason} when
-    Proplist :: [{binary(),{{model_name}}:field()}],
-    {{model_name|capfirst}} :: {{model_name}}:{{model_name}}(),
-    Reason :: [{{model_name}}:params_error()].
+-spec from_bin_proplist(Proplist) -> {ok,{{model|capfirst}}} | {error,Reason} when
+    Proplist :: [{binary(),{{module}}:field()}],
+    {{model|capfirst}} :: {{module}}:{{model}}(),
+    Reason :: [{{module}}:params_error()].
 from_bin_proplist(Proplist) ->
-    {{model_name}}:from_bin_proplist(Proplist).
+    {{module}}:from_bin_proplist(Proplist).
 
 % @doc Fill object from proplist which keys are binary with type checks. No require checks. Work with USER access privilegis.
--spec from_bin_proplist(Proplist,{{model_name|capfirst}}) -> {ok,{{model_name|capfirst}}} | {error,Reason} when
-    Proplist :: [{binary(),{{model_name}}:field()}],
-    {{model_name|capfirst}} :: {{model_name}}:{{model_name}}(),
-    Reason :: [{{model_name}}:params_error()].
-from_bin_proplist(Proplist,{{model_name|capfirst}}) ->
-    {{model_name}}:from_bin_proplist(Proplist,{{model_name|capfirst}}).
+-spec from_bin_proplist(Proplist,{{model|capfirst}}) -> {ok,{{model|capfirst}}} | {error,Reason} when
+    Proplist :: [{binary(),{{module}}:field()}],
+    {{model|capfirst}} :: {{module}}:{{model}}(),
+    Reason :: [{{module}}:params_error()].
+from_bin_proplist(Proplist,{{model|capfirst}}) ->
+    {{module}}:from_bin_proplist(Proplist,{{model|capfirst}}).
 
 % @doc Convert object to proplist.
--spec to_proplist({{model_name|capfirst}}) -> [{Field,FieldType}] when
-    {{model_name|capfirst}} :: {{model_name}}:{{model_name}}(),
-    Field :: {{model_name}}:field(),
-    FieldType :: {{model_name}}:field_type().
-to_proplist({{model_name|capfirst}}) ->
-    {{model_name}}:to_proplist({{model_name|capfirst}}).
+-spec to_proplist({{model|capfirst}}) -> [{Field,FieldType}] when
+    {{model|capfirst}} :: {{module}}:{{model}}(),
+    Field :: {{module}}:field(),
+    FieldType :: {{module}}:field_type().
+to_proplist({{model|capfirst}}) ->
+    {{module}}:to_proplist({{model|capfirst}}).
 
 -spec validator(Field) ->
     fun((Value) -> ok | {error,Reason}) when
-        Field :: {{model_name}}:field(),
+        Field :: {{module}}:field(),
         Value :: any(),
 	Reason :: any().
 validator(Field) ->
-    {{model_name}}:validator(Field).
+    {{module}}:validator(Field).
     
-valid({{model_name|capfirst}}) ->
-    {{model_name}}:valid({{model_name|capfirst}}).
+valid({{model|capfirst}}) ->
+    {{module}}:valid({{model|capfirst}}).
      

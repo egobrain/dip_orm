@@ -26,10 +26,7 @@
 	 link/2,
 	 
 	 find_link/2,
-	 link_to_join/1,
-
-	 model_to_module/1,
-	 model_to_dip_module/1
+	 link_to_join/1
 	]).
 -include("log.hrl").
 
@@ -52,12 +49,6 @@
 %% ===================================================================
 %%% API
 %% ===================================================================
-
-model_to_module(Str) ->
-    <<"db_",Str/binary>>.
-
-model_to_dip_module(Str) ->
-    <<"dip_",Str/binary>>.
 
 find_link(#model{name=LocalModelName,links=Links},
 	  #model{name=RemoteModelName}) ->
@@ -105,7 +96,11 @@ model(db_fields,#model{fields=Fields}) ->
     [F || F <- Fields,F#field.is_in_database,((F#field.record_options)#record_options.mode)#access_mode.sr];
 model(db_table,#model{options=#options{table=Table}}) -> Table;
 model(safe_delete,#model{options=#options{deleted_flag_name=Flag}}) -> Flag;
-model(dip,#model{options=#options{dip=Dip}}) -> Dip.
+model(dip,#model{options=#options{dip=Dip}}) -> Dip;
+model(db_module,#model{name=Name,options=#options{db_module_prefix=Prefix}}) ->
+    binary_to_atom(<<Prefix/binary,Name/binary>>);
+model(dip_module,#model{name=Name,options=#options{dip_module_prefix=Prefix}}) ->
+    binary_to_atom(<<Prefix/binary,Name/binary>>).
    
 
 link_to_join(#one_to_many{local_table=LocalTable,
@@ -217,6 +212,7 @@ dict_to_models(Dict) ->
 
 % print_dict_links(Dict) ->
 %     Models = dict_to_models(Dict),
+%     ?DBG("Models: ~p",[Models]),
 %     ?DBG(" ~n =========================================== ~n ").
 
 fill_links_db_options(ModelsDict) ->
@@ -468,7 +464,18 @@ normalize_options(Options) ->
 	   Dip <- default(option_or_flag,dip,Options,false),
 	   SafeDelete <- default(option_or_flag,safe_delete,Options,false),
 	   Dtw <- default(flag,dtw,Options,false),
-	   ResOptions <- return(#options{table=TableName,dtw=Dtw,dip=Dip}),
+	   DbModulePrefix_ <- default(option,db_module_prefix,Options,<<"db_">>),
+	   DbModulePrefix <- to_binary(DbModulePrefix_),
+
+	   DipModulePrefix_ <- default(option,dip_module_prefix,Options,<<"dip_">>),
+	   DipModulePrefix <- to_binary(DipModulePrefix_),
+
+	   ResOptions <- return(#options{table=TableName,
+					 dtw=Dtw,
+					 dip=Dip,
+					 db_module_prefix=DbModulePrefix,
+					 dip_module_prefix=DipModulePrefix
+					}),
 	   set_safe_delete(SafeDelete,ResOptions)
 	      ]).
 
@@ -572,14 +579,14 @@ parse_db_options(FieldOptions,#field{
 	   Type <- default(option,db_type,FieldOptions,default_db_type(RecType)),
 	   valid_variants(db_type,Type,[string,integer,datetime]),
 	   Alias <- default(option,db_alias,FieldOptions,Name),
-	   not_null_binary(Alias),
+	   Alias2 <- not_null_binary(Alias),
 	   Link <- not_required(option,link,FieldOptions),
 	   DBOptions2 <- set_link(Link,DBOptions),
 	   return(
 	     Field#field{
 	       db_options=DBOptions2#db_options{
 			    type=Type,
-			    alias=Alias
+			    alias=Alias2
 			   }})
 	      ]).
 
@@ -713,6 +720,22 @@ not_null_binary(Num) when is_number(Num) ->
     {error,{wrong_format,"Can't be number"}};
 not_null_binary(Tuple) when is_tuple(Tuple) ->
     {error,{wrong_format,"Can't be tuple"}}.
+
+
+to_binary(Escape) when Escape =:= undefined orelse
+		       Escape =:= null ->
+    {ok,<<"">>};
+to_binary(Bin) when is_binary(Bin) ->
+    {ok,Bin};
+to_binary(Atom) when is_atom(Atom) ->
+    not_null_binary(atom_to_list(Atom));
+to_binary(List) when is_list(List) ->
+    not_null_binary(list_to_binary(List));
+to_binary(Num) when is_number(Num) ->
+    {error,{wrong_format,"Can't be number"}};
+to_binary(Tuple) when is_tuple(Tuple) ->
+    {error,{wrong_format,"Can't be tuple"}}.
+
 
 not_null_atom(Escape) when Escape =:= undefined orelse
 			   Escape =:= null ->
@@ -852,7 +875,9 @@ atom_to_binary_with_suffix(Atom,Suffix) ->
 
 'if'(true,Then,_) -> Then;
 'if'(false,_,Else) -> Else.
-    
+
+binary_to_atom(Bin) ->
+    list_to_atom(binary_to_list(Bin)).
 
 %% ===================================================================
 %%% Tests
