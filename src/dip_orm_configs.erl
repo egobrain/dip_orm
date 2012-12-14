@@ -136,7 +136,7 @@ join_str(LocalTable,LocalID,RemoteTable,RemoteID) ->
 
 get_global_config(Config) ->
     do([error_m ||
-	   Opts <- default(option,dip_orm_options,Config,[]),
+	   Opts <- get_rebar_config(dip_orm_options,Config,[]),
 	   validators(dip_orm_options,Opts,[fun is_list/1]),
 	   ConfigsFolder_ <- default(option,configs_folder,Opts,<<"priv/models">>),
 	   ConfigsFolder <- not_null_binary(ConfigsFolder_),
@@ -159,7 +159,7 @@ get_global_config(Config) ->
 
 get_db_model_config(Config) ->
     do([error_m ||
-	   Opts <- default(option,db_models,Config,[]),
+	   Opts <- get_rebar_config(db_models,Config,[]),
 	   validators(db_models,Opts,[fun is_list/1]),
 	   return(Opts)]).
     
@@ -430,6 +430,10 @@ check_fields(#field{name=Name1,record_options=#record_options{type=Type1}},
 %% ===================================================================
 %%% Internal functions
 %% ===================================================================
+
+get_rebar_config(Key,RebarConfig,Default) ->
+    Value = rebar_config:get(RebarConfig,Key,Default),
+    {ok,Value}.
 
 normalize_({Filename,Name,Config}) ->
     Res = do([error_m ||

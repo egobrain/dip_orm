@@ -122,6 +122,7 @@ parse_efind(Args,ModelName) ->
 	   {RestArgs4,Req4} <- set_offset(RestArgs3,Req3),
 	   not_empty_error(RestArgs4),
 	   Ast <- request_to_efind_ast(Req4),
+	   % erl_prettypr:format(Ast),
 	   return(Ast)
 	      ]).
 

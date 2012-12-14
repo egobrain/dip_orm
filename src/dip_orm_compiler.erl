@@ -22,7 +22,6 @@
 -module(dip_orm_compiler).
 
 -include("log.hrl").
--include("apps/rebar/include/rebar.hrl").
 
 -compile({parse_transform,do}).
 -compile({parse_transform,cut}).
@@ -33,11 +32,11 @@
 %%% API
 %% ===================================================================
 
-models(RebarConfig,_AppFile) ->
-    Config = element(3,RebarConfig),
+models(RebarConfig_,_AppFile) ->
+    RebarConfig = rebar_config:set_global(RebarConfig_, skip_deps, true),
     do([error_m ||
-	   GlobalConfig <- dip_orm_configs:get_global_config(Config),
-	   RawModels <- dip_orm_configs:get_db_model_config(Config),
+	   GlobalConfig <- dip_orm_configs:get_global_config(RebarConfig),
+	   RawModels <- dip_orm_configs:get_db_model_config(RebarConfig),
 	   Models <- dip_utils:success_map(
 			       dip_orm_configs:get_config(_,GlobalConfig),
 			       RawModels),
