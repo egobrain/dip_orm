@@ -307,7 +307,7 @@ get_setter_fields(Fields) ->
 			   mode=Mode}}) when Setter =/= false ->   
 		      {ok,[
 			   {name,Name},
-			   {type,Type},
+			   {type,dip_utils:template("~p",[Type])},
 			   {system_can_write,Mode#access_mode.sw},
 			   {user_can_write,Mode#access_mode.w}
 			  ]};

@@ -163,7 +163,9 @@ get_db_model_config(Config) ->
 	   validators(db_models,Opts,[fun is_list/1]),
 	   return(Opts)]).
     
-
+get_config(Name,GlobalConfig) when is_binary(Name) orelse is_atom(Name)  ->
+    Options = [],
+    get_config({Name,Options},GlobalConfig);
 get_config({Name,Options},
 	   #global_config{
 	     configs_folder=ConfigsFolder,
@@ -577,7 +579,7 @@ parse_db_options(FieldOptions,#field{
     RecType = RecOpts#record_options.type,
     do([error_m ||
 	   Type <- default(option,db_type,FieldOptions,default_db_type(RecType)),
-	   valid_variants(db_type,Type,[string,integer,datetime]),
+	   valid_variants(db_type,Type,[string,integer,datetime,number]),
 	   Alias <- default(option,db_alias,FieldOptions,Name),
 	   Alias2 <- not_null_binary(Alias),
 	   Link <- not_required(option,link,FieldOptions),
@@ -759,6 +761,7 @@ not_null_atom(Tuple) when is_tuple(Tuple) ->
 
 default_db_type(integer) -> {ok,integer};
 default_db_type(non_neg_integer) -> {ok,integer};
+default_db_type(float) -> {ok,number};
 default_db_type(binary) -> {ok,string};
 default_db_type(Else) ->
     Reason = dip_utils:template("Unknown default db_type for \"~p\"",[Else]),

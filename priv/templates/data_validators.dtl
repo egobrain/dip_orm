@@ -60,10 +60,10 @@ from_bin_proplist_({ <<"{{f.name}}">>, {{f.name|capfirst}} },{{model|capfirst}})
 	{error,Description} -> {error,{ {{f.name}}, Description } }
     end;
 %|    {% else %}
-from_bin_proplist_({ <<"{{f.name}}">>,_},{{model|capfirst}}) -> {error, { {{f.name}},forbidden} };
+from_bin_proplist_({ <<"{{f.name}}">>,_},_{{model|capfirst}}) -> {error, { {{f.name}},forbidden} };
 %|    {% endif %}
 %| {% endfor %}
-from_bin_proplist_({ Name,_},{{model|capfirst}}) -> {error, {Name,unknown} }.
+from_bin_proplist_({ Name,_},_{{model|capfirst}}) -> {error, {Name,unknown} }.
 
 % @doc Convert object to proplist.
 -spec to_proplist({{model|capfirst}}) -> [{Field,FieldType}] when

@@ -112,13 +112,11 @@ parse(Node) when is_tuple(Node) andalso size(Node) > 2 ->
 parse(Node) ->
     {ok,Node}.
 
-parse_efind([_|_] = Args,ModelName) ->
+parse_efind(Args,ModelName) ->
     {ok,Model} = dip_orm:model_config(ModelName),
     NewReq = #request{type=select,target_model=Model},
     do([error_m ||
-	   ?DBG(" === >Args ~p",[ModelName]),
 	   {RestArgs,Req} <- set_where(Args,NewReq),
-	   ?DBG("< === Args ~p",[Req#request.where]),
 	   {RestArgs2,Req2} <- set_order_by(RestArgs,Req),
 	   {RestArgs3,Req3} <- set_limit(RestArgs2,Req2),
 	   {RestArgs4,Req4} <- set_offset(RestArgs3,Req3),
@@ -127,7 +125,7 @@ parse_efind([_|_] = Args,ModelName) ->
 	   return(Ast)
 	      ]).
 
-parse_dip_efind(Scope,[_|_] = Args,ModelName) ->
+parse_dip_efind(Scope,Args,ModelName) ->
     {ok,Model} = dip_orm:model_config(ModelName),
     NewReq = #request{type=select,target_model=Model},
     do([error_m ||
@@ -295,10 +293,8 @@ set_where([{call,_Line,{atom,_Line2,where},WhereArgs}|RestArgs],Req) ->
 	   {Where,Req2} <- transform(WhereArgs,Req),
 	   return({RestArgs, Req2#request{where = Where}})
 	      ]);
-set_where([_Ast|RestArgs] = T,Req) ->
-    {ok,{RestArgs,Req}};
-set_where([],Req) ->
-    {ok,{[],Req}}.
+set_where(Args,Req) ->
+    {ok,{Args,Req}}.
 
 %% ===================================================================
 
@@ -330,15 +326,17 @@ transform({op,_Line,Op,Arg1,Arg2},Req) when Op =:= 'andalso' orelse
 	      ]);
 
 transform({op,Line,Op,Field,Value},Req) when Op =:= '=:=' orelse
-					     Op =:= '=='
+					     Op =:= '==' 
 					     ->
     transform_op('=',Line,Field,Value,Req);
 transform({op,Line,Op,Field,Value},Req) when Op =:= '=/=' orelse
 					     Op =:= '/='
 					     ->
     transform_op('=',Line,Field,{'not',Value},Req);
-transform({op,Line,Op,Field,Value},Req) when Op =:= '<' orelse
-Op =:= '>' ->
+transform({op,Line,Op,Field,Value},Req) when Op =:= '>' orelse
+					     Op =:= '>=' orelse
+					     Op =:= '<' orelse
+					     Op =:= '=<' ->
     transform_op(Op,Line,Field,Value,Req);
 transform({match,Line,_Field,_Value},_Req) ->
     Reason = "Invlid compare operation. Must be '==' or '=:='.",

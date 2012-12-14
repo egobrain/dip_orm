@@ -65,7 +65,7 @@ save({{model|capfirst}}) ->
 	   Result <- save({{model|capfirst}},ChangedFields,is_new({{model|capfirst}})),
 	   dip_utils:one(Result)
 	      ]).
-save({{model|capfirst}},ChangedFields,true) ->
+save(_{{model|capfirst}},ChangedFields,true) ->
     dip_orm(
       insert({{model}}),
       values(ChangedFields)

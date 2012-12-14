@@ -7,6 +7,7 @@
 %%% Created :  7 Dec 2012 by egobrain <egobrain@linux-ympb>
 %%%-------------------------------------------------------------------
 -module(dip_orm_db).
+-include("log.hrl").
 
 -export([% select/3,
 	 select/5,
@@ -128,6 +129,7 @@ insert_to_sql(Values,Module) ->
 %% ===================================================================
 
 where_to_sql(Where,Module) ->
+    ?DBG(Where),
     {SQL,Joins,Args} = fold_where_(Where,Module),
     SQL2 = case SQL of
 	       [] -> [];
@@ -154,6 +156,11 @@ fold_where_({'>',Field,Value},Module) ->
 
 fold_where_({'<',Field,Value},Module) ->
     operation_to_sql("<",Field,Value,Module);
+fold_where_({'>=',Field,Value},Module) ->
+    operation_to_sql(">=",Field,Value,Module);
+fold_where_({'=<',Field,Value},Module) ->
+    operation_to_sql("<=",Field,Value,Module);
+
 fold_where_({'not',Field},Module) ->
     {SQL,Joins,Args} = fold_where_(Field,Module),
     {[" NOT ",SQL],Joins,Args};
