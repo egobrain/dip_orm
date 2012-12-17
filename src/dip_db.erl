@@ -236,7 +236,7 @@ binary_to_number(Bin) ->
 	{Float,[]} -> Float;
 	_ ->
 	    case string:to_integer(List) of
-		{Int,[]} -> Int;
+		{Int,[]} -> float(Int);
 		_ ->
 		    throw(no_number)
 	    end
