@@ -1,5 +1,6 @@
 -module(dip_db).
 
+-compile({parse_transform,do}).
 -include("log.hrl").
 % -include("decorators.hrl").
 
@@ -26,9 +27,9 @@
 -record(sql_error,  {severity, code, message, extra}).
 -type sql_error() :: #sql_error{}.
 
--type sql_result(Tuple) :: {ok, Columns :: [sql_column()], Rows :: [Tuple] } |
+-type sql_result(Object) :: {ok, Columns :: [sql_column()], Rows :: [Object] } |
                       {ok, Count :: integer()} |
-                      {ok, Count :: integer(), Columns :: [sql_column()], Rows :: [_]}.
+                      {ok, Count :: integer(), Columns :: [sql_column()], Rows :: [Object]}.
 
 -type db_type() :: integer | number | string | datetime | boolean.
 -type sql_arg(Arg) :: {db_type(),Arg}.
@@ -46,62 +47,81 @@
 %% @private Exequte query or fanction on db connection
 -spec q(Query :: string()) ->  sql_result(_Tuple) | {error,db_error} | {error,not_unique}.
 q(Query) ->
-    q(Query,undefined).
+    q(Query,[]).
 
--spec q(Query :: string(), (undefined|[_]|fun((_) -> {ok,Object}|{error,Reason}))) ->  Object | [Object] | {error, db_error|not_unique|Reason }.
-q(Patter,Args) when is_list(Args) ->
-    q(Patter,Args,undefined);
-q(Query,Fun) ->
-    case get_connection() of
-	{ok,Connection} ->
-	    Result = q2(Connection,Query),
-	    return_connection(Connection),
-	    Result2 = case Fun of
-			  undefined ->
-			      Result;
-			  _ ->
-			      case Result of
-				  {ok,Columns,Rows} ->
-				      {ok,Columns,[Fun(Row) || Row <- Rows]};
-				  {ok,Cnt,Columns,Rows} ->
-				      {ok,Cnt,Columns,[Fun(Row) || Row <- Rows]};
-				  Else ->
-				      Else
-			      end
-		      end,
-	    case Result2 of
-		{error,{error,_,Code, Description, Position}} ->
-		    case Code of
-			<<"23505">> ->
-			    {error,not_unique};
-			_ ->
-			    ?LOG_ERROR("BD Error","Req: ~s~nError:~p in ~p",[Query,Description,Position]),
-			    {error,db_error}
-		    end;
-		_ ->
-		    Result2
-	    end;
-	{error,Reason} ->
-	    ?LOG_ERROR("BD Error"," ~p",[Reason]),
-	    {error, db_error}
-    end.
+-spec q(Query, Args) ->  sql_result(Object) | {error, Reason } when
+    Query :: string(),
+    Args :: [sql_arg(any())],
+    Object :: [tuple()],
+    Reason :: db_error|not_unique.        
+q(Patter,Args) ->
+    q(Patter,Args,undefined).
 
--spec q(Patter::string(),Args::[_],(fun((_) -> Object) | undefined)) -> Object | [Object] | {error,db_error} | {error,not_unique}.
-q(Patter,Args,Fun) ->
-    case escape_args(Args) of
-	{ok,Data} ->
-	    q(io_lib:format(Patter,Data),Fun);
-	{error,bad_arg} ->
-	    {error,db_error}
-    end.
+-spec q(Query, Args,Fun) ->  sql_result(Object) | {error, Reason} when
+    Query :: string(),
+    Args :: [sql_arg(any())],
+    Fun :: fun((tuple()) -> Object),
+    Reason :: db_error|not_unique.        
+q(Query,Args,Fun) ->
+    Res = do([error_m ||
+		 Data <- escape_args(Args),
+		 SQL = io_lib:format(Query,Data),
+		 Connection <- get_connection(),
+		 Result <- do([error_m ||
+			    Result <- return(exec_query(Connection,SQL)),
+			    return_connection(Connection),
+			    Result]),
+		 apply_to_result(Fun,Result)
+	      ]),
+    transform_error(Res).
+
 %% ===================================================================
 %%% Internal Helpers
 %% ===================================================================
 
 % ?TIME_EXEC.
-q2(Connection,Query) ->
+exec_query(Connection,Query) ->
     ?DBG("Query: ~s",[Query]),
-    pgsql:squery(Connection,Query).
+    case pgsql:squery(Connection,Query) of
+	{error,Reason} ->
+	    {error,{query_error,Query,Reason}};
+	Result ->
+	    {ok,Result}
+    end.
+
+apply_to_result(undefined,Result) ->  Result;
+apply_to_result(Fun,{ok,Cnt,Columns,Rows}) ->
+    {ok,Cnt,Columns,[Fun(Row) || Row <- Rows]};
+apply_to_result(Fun,{ok,Columns,Rows}) ->
+    {ok,Columns,[Fun(Row) || Row <- Rows]};
+apply_to_result(_Fun,Result) ->
+    Result.
+    
+
+-spec transform_error(Error) -> {error,Reason} when
+    Error :: {error,any()},
+    Reason :: db_error | not_unique
+                    ;(Ok) -> Ok.
+transform_error({error,Reason}) ->
+    Reason2 = case Reason of
+		  {query_error,Query,Err} ->
+		      {error,_,Code,Description,Position} = Err,
+		      case Code of
+			  <<"23505">> ->
+			      not_unique;
+			  _ ->
+			      ?LOG_ERROR("BD Error","Req: ~s~nError:~s in ~p",[Query,Description,Position]),
+			      db_error
+		      end;
+		  bad_arg ->
+		      db_error;
+		  _ ->
+		      ?LOG_ERROR("BD Error"," ~p",[Reason]),
+		      db_error
+	      end,
+    {error,Reason2};
+transform_error(Result) -> Result.
+	      
 
 %% @private Get pool handler
 % -spec get_connection() -> {ok,Connection :: pid()} | {error,_Reason}.
@@ -179,7 +199,7 @@ escape_arg({string,Arg}) ->
 	Str when is_list(Str) ->
 	    Str1 = re:replace(Str,"'","''",[global,{return,list}]),
 	    Str2 = re:replace(Str1,"\\\\","\\\\\\\\",[global,{return,list}]),
-	    {ok,"'"++Str2++"'"};
+	    {ok,["'",Str2,"'"]};
 	Bin when is_binary(Bin) ->
 	    escape_arg({string,binary_to_list(Bin)});
 	Int when is_integer(Int) ->
@@ -212,8 +232,15 @@ binary_to_integer(Bin) ->
 binary_to_number(null) -> undefined;
 binary_to_number(Bin) ->
     List = binary_to_list(Bin),
-    {Float,[]} = string:to_float(List),
-    Float.
+    case string:to_float(List) of
+	{Float,[]} -> Float;
+	_ ->
+	    case string:to_integer(List) of
+		{Int,[]} -> Int;
+		_ ->
+		    throw(no_number)
+	    end
+    end.
 
 -spec binary_to_string(binary()) -> binary()
                       ;(null) -> undefined.

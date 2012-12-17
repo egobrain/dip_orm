@@ -129,7 +129,7 @@ insert_to_sql(Values,Module) ->
 %% ===================================================================
 
 where_to_sql(Where,Module) ->
-    ?DBG(Where),
+    % ?DBG(Where),
     {SQL,Joins,Args} = fold_where_(Where,Module),
     SQL2 = case SQL of
 	       [] -> [];

@@ -72,7 +72,7 @@ link(remote_model,#many_to_many{remote_model=Model}) -> Model.
     
 get_model_field(FieldName,ModelConfig) ->
     do([error_m ||
-	   FieldName2 <- not_null_binary(FieldName),
+	   FieldName2 <- not_null_binary({"Module fieldname",FieldName},FieldName),
 	   get_model_field_(FieldName2,ModelConfig)
 	      ]).
 get_model_field_(FieldName,#model{fields=Fields}) ->
@@ -139,16 +139,16 @@ get_global_config(Config) ->
 	   Opts <- get_rebar_config(dip_orm_options,Config,[]),
 	   validators(dip_orm_options,Opts,[fun is_list/1]),
 	   ConfigsFolder_ <- default(option,configs_folder,Opts,<<"priv/models">>),
-	   ConfigsFolder <- not_null_binary(ConfigsFolder_),
+	   ConfigsFolder <- not_null_binary(configs_folder,ConfigsFolder_),
 
 	   OutputSrcFolder_ <- default(option,output_src_folder,Opts,<<"src/">>),
-	   OutputSrcFolder <- not_null_binary(OutputSrcFolder_),
+	   OutputSrcFolder <- not_null_binary(output_src_folder,OutputSrcFolder_),
 
 	   DipSrcFolder_ <- default(option,output_dip_src_folder,Opts,<<"src/">>),
-	   DipSrcFolder <- not_null_binary(DipSrcFolder_),	   
+	   DipSrcFolder <- not_null_binary(output_dip_src_folder,DipSrcFolder_),	   
 
 	   Suffix_ <- default(option,config_suffix,Opts,<<".cfg">>),
-	   Suffix <- not_null_binary(Suffix_),
+	   Suffix <- not_null_binary(config_suffix,Suffix_),
 	   return(
 	     #global_config{configs_folder=ConfigsFolder,
 			    output_src_folder=OutputSrcFolder,
@@ -173,9 +173,9 @@ get_config({Name,Options},
 	    }) ->
     do([error_m ||
 	   validators(options,Options,[fun is_list/1]),
-	   ModelName <- not_null_atom(Name),
+	   ModelName <- not_null_atom({"Config Name",Name},Name),
 	   ConfigName <- default(option,config,Options,atom_to_binary_with_suffix(ModelName,Suffix)),
-	   ConfigName2 <- not_null_binary(ConfigName),
+	   ConfigName2 <- not_null_binary(config,ConfigName),
 	   ConfigFile <- return(filename:join(ConfigsFolder,ConfigName2)),
 	   ModelConfig <- dip_orm_file:read_config(ConfigFile),
 	   normalize_({ConfigFile,ModelName,ModelConfig})
@@ -445,7 +445,7 @@ normalize_({Filename,Name,Config}) ->
 		 
 		 Options2 <- normalize_options(Options),
 		 Fields2 <- normalize_fields(Fields),
-		 ModuleName <- not_null_binary(Name),
+		 ModuleName <- not_null_binary({"Module name",Name},Name),
 		 
 		 return(
 		   #model{name=ModuleName,
@@ -466,15 +466,15 @@ normalize_({Filename,Name,Config}) ->
 normalize_options(Options) ->
     do([error_m ||
 	   Table <- required(option,table,Options),
-	   TableName <- not_null_binary(Table),
+	   TableName <- not_null_binary(table,Table),
 	   Dip <- default(option_or_flag,dip,Options,false),
 	   SafeDelete <- default(option_or_flag,safe_delete,Options,false),
 	   Dtw <- default(flag,dtw,Options,false),
 	   DbModulePrefix_ <- default(option,db_module_prefix,Options,<<"db_">>),
-	   DbModulePrefix <- to_binary(DbModulePrefix_),
+	   DbModulePrefix <- to_binary(db_module_prefix,DbModulePrefix_),
 
 	   DipModulePrefix_ <- default(option,dip_module_prefix,Options,<<"dip_">>),
-	   DipModulePrefix <- to_binary(DipModulePrefix_),
+	   DipModulePrefix <- to_binary(dip_module_prefix,DipModulePrefix_),
 
 	   ResOptions <- return(#options{table=TableName,
 					 dtw=Dtw,
@@ -490,7 +490,7 @@ normalize_fields(Fields) ->
 
 normalize_field({Name,Type,FieldOptions}) ->
     do([error_m ||
-	   Name2 <- not_null_binary(Name),
+	   Name2 <- not_null_binary({"Field name",Name},Name),
 	   Type2 <- valid_record_type(Type),
 	   normalize_field_options(Name2,Type2,FieldOptions)
 	  ]);
@@ -585,7 +585,7 @@ parse_db_options(FieldOptions,#field{
 	   Type <- default(option,db_type,FieldOptions,default_db_type(RecType)),
 	   valid_variants(db_type,Type,[string,integer,datetime,number]),
 	   Alias <- default(option,db_alias,FieldOptions,Name),
-	   Alias2 <- not_null_binary(Alias),
+	   Alias2 <- not_null_binary(db_alias,Alias),
 	   Link <- not_required(option,link,FieldOptions),
 	   DBOptions2 <- set_link(Link,DBOptions),
 	   return(
@@ -601,8 +601,8 @@ set_link(undefined,DBOptions) ->
     {ok,DBOptions2};
 set_link({Module,Field},DBOptions) ->
     do([error_m ||
-	   Module2 <- not_null_binary(Module),
-	   Field2 <- not_null_binary(Field),
+	   Module2 <- not_null_binary({"Link module",Module},Module),
+	   Field2 <- not_null_binary({"Link field",Field},Field),
 	   return(DBOptions#db_options{
 		    is_link = true,
 		    link = {Module2,Field2}
@@ -623,7 +623,7 @@ set_safe_delete(false,Options) ->
     {ok,Options2};
 set_safe_delete(FlagName,Options) ->
     do([error_m ||
-	   ValidFlagName <- not_null_binary(FlagName),
+	   ValidFlagName <- not_null_binary({"Safe delete flag",FlagName},FlagName),
 	   return(Options#options{
 		    deleted_flag_name = ValidFlagName
 		   })]).
@@ -711,53 +711,53 @@ default(Opt,Name,Config,DefaultValue) ->
 
 %% = Default transformations =========================================
 
-not_null_binary(Escape) when Escape =:= undefined orelse
+not_null_binary(Name,Escape) when Escape =:= undefined orelse
 			     Escape =:= null ->
-    {error,{wrong_format,"Can't be null or undefined"}};
-not_null_binary(<<"">>) ->
-    {error,{wrong_format,"Can't be empty"}};
-not_null_binary(Bin) when is_binary(Bin) ->
+    {error,{Name,"Can't be null or undefined"}};
+not_null_binary(Name,<<"">>) ->
+    {error,{Name,"Can't be empty"}};
+not_null_binary(_Name,Bin) when is_binary(Bin) ->
     {ok,Bin};
-not_null_binary(Atom) when is_atom(Atom) ->
-    not_null_binary(atom_to_list(Atom));
-not_null_binary(List) when is_list(List) ->
-    not_null_binary(list_to_binary(List));
-not_null_binary(Num) when is_number(Num) ->
+not_null_binary(Name,Atom) when is_atom(Atom) ->
+    not_null_binary(Name,atom_to_list(Atom));
+not_null_binary(Name,List) when is_list(List) ->
+    not_null_binary(Name,list_to_binary(List));
+not_null_binary(_Name,Num) when is_number(Num) ->
     {error,{wrong_format,"Can't be number"}};
-not_null_binary(Tuple) when is_tuple(Tuple) ->
-    {error,{wrong_format,"Can't be tuple"}}.
+not_null_binary(Name,Tuple) when is_tuple(Tuple) ->
+    {error,{Name,"Can't be tuple"}}.
 
 
-to_binary(Escape) when Escape =:= undefined orelse
+to_binary(_Name,Escape) when Escape =:= undefined orelse
 		       Escape =:= null ->
     {ok,<<"">>};
-to_binary(Bin) when is_binary(Bin) ->
+to_binary(_Name,Bin) when is_binary(Bin) ->
     {ok,Bin};
-to_binary(Atom) when is_atom(Atom) ->
-    not_null_binary(atom_to_list(Atom));
-to_binary(List) when is_list(List) ->
-    not_null_binary(list_to_binary(List));
-to_binary(Num) when is_number(Num) ->
-    {error,{wrong_format,"Can't be number"}};
-to_binary(Tuple) when is_tuple(Tuple) ->
-    {error,{wrong_format,"Can't be tuple"}}.
+to_binary(Name,Atom) when is_atom(Atom) ->
+    to_binary(Name,atom_to_list(Atom));
+to_binary(Name,List) when is_list(List) ->
+    to_binary(Name,list_to_binary(List));
+to_binary(Name,Num) when is_number(Num) ->
+    {error,{Name,"Can't be number"}};
+to_binary(Name,Tuple) when is_tuple(Tuple) ->
+    {error,{Name,"Can't be tuple"}}.
 
 
-not_null_atom(Escape) when Escape =:= undefined orelse
+not_null_atom(Name,Escape) when Escape =:= undefined orelse
 			   Escape =:= null ->
-    {error,{wrong_format,"Can't be null or undefined"}};
-not_null_atom([]) ->
-    {error,{wrong_format,"Can't be empty"}};
-not_null_atom(List) when is_list(List) ->
-    not_null_atom(list_to_atom(List));
-not_null_atom(Bin) when is_binary(Bin) ->
-    not_null_atom(binary_to_list(Bin));
-not_null_atom(Atom) when is_atom(Atom) ->
+    {error,{Name,"Can't be null or undefined"}};
+not_null_atom(Name,[]) ->
+    {error,{Name,"Can't be empty"}};
+not_null_atom(Name,List) when is_list(List) ->
+    not_null_atom(Name,list_to_atom(List));
+not_null_atom(Name,Bin) when is_binary(Bin) ->
+    not_null_atom(Name,binary_to_list(Bin));
+not_null_atom(_Name,Atom) when is_atom(Atom) ->
     {ok,Atom};
-not_null_atom(Num) when is_number(Num) ->
-    {error,{wrong_format,"Can't be number"}};
-not_null_atom(Tuple) when is_tuple(Tuple) ->
-    {error,{wrong_format,"Can't be tuple"}}.
+not_null_atom(Name,Num) when is_number(Num) ->
+    {error,{Name,"Can't be number"}};
+not_null_atom(Name,Tuple) when is_tuple(Tuple) ->
+    {error,{Name,"Can't be tuple"}}.
 
 %% ===================================================================
 %%% Transformers
@@ -790,12 +790,12 @@ mode_to_acl(srw) -> #access_mode{sr=true,w=true,sw=true}.
     Reason :: {wrong_format,Descritption :: any()}.
 valid_record_type({Module,Type}) ->
     do([error_m ||
-	   Module2 <- not_null_atom(Module),
-	   Type2 <- not_null_atom(Type),
+	   Module2 <- not_null_atom({"Record type module",Module},Module),
+	   Type2 <- not_null_atom({"Record type",Type},Type),
 	   return({Module2,Type2})
 		]);
 valid_record_type(Type) ->
-    case not_null_atom(Type) of
+    case not_null_atom({"Record type",Type},Type) of
 	{ok,Value} ->
 	    {ok,Value};
 	_ ->
@@ -850,21 +850,21 @@ validators(Name,Option,[F|Funs]) ->
 	    {error,{invalid,Reason}}
     end.
 
-or_validators(Name,Option,Validators) ->
-    case or_validators_(Option,Validators) of
-	ok -> ok;
-	{error,_Reason} ->
-	    Reason = dip_utils:template("Option ~p is invalid",[Name]),
-	    {error,{invalid,Reason}}
-    end.
-or_validators_(_Option,[]) -> {error,invalid};
-or_validators_(Option,[F|Rest]) when is_function(F) ->
-    case F(Option) of
-	true -> ok;
-	false -> or_validators_(Option,Rest)
-    end;
-or_validators_(Option,[Option|_Rest]) -> ok;
-or_validators_(Option,[_|Rest]) -> or_validators_(Option,Rest).
+% or_validators(Name,Option,Validators) ->
+%     case or_validators_(Option,Validators) of
+% 	ok -> ok;
+% 	{error,_Reason} ->
+% 	    Reason = dip_utils:template("Option ~p is invalid",[Name]),
+% 	    {error,{invalid,Reason}}
+%     end.
+% or_validators_(_Option,[]) -> {error,invalid};
+% or_validators_(Option,[F|Rest]) when is_function(F) ->
+%     case F(Option) of
+% 	true -> ok;
+% 	false -> or_validators_(Option,Rest)
+%     end;
+% or_validators_(Option,[Option|_Rest]) -> ok;
+% or_validators_(Option,[_|Rest]) -> or_validators_(Option,Rest).
     
 
 is_empty(<<"">>) -> true;

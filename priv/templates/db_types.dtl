@@ -41,18 +41,21 @@
 {{f.name}}
 %\       {% if not forloop.last %}
 |
-%\       {% endif %}
-%\    {% endfor %}
-% {% else %}
-undefined. % There is no required fields in this model
-%\ {% endif %}
+%\
+%|       {% else %}
 .
+%|       {% endif %}
+%|    {% endfor %}
+%| {% else %}
+undefined. % There is no required fields in this model
+%| {% endif %}
+
 -type field_type() ::
 %\ {% for f in fields %}
 {{ f.type }}
 %\    {% if not forloop.last %}
 |
-%\    {% endif %}
+%|    {% endif %}
 %\{% endfor %}
 .
 -type params_error() :: required | forbidden | unknown.
@@ -61,4 +64,19 @@ undefined. % There is no required fields in this model
 	      field/0,
 	      field_type/0,
 	      params_error/0
+	     ]).
+
+%% == FieldTypes ==
+%| {% for f in fields %}
+-type {{f.name}}() :: {{ f.type }}.
+%|{% endfor %}
+
+-export_type([
+	      %| {% for f in fields %}
+	      {{ f.name }}/0
+	      %|    {% if not forloop.last %}
+	      %\
+	      ,
+	      %|    {% endif %}
+	      %|{% endfor %}
 	     ]).
