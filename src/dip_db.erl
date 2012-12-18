@@ -67,11 +67,12 @@ q(Query,Args,Fun) ->
 		 Data <- escape_args(Args),
 		 SQL = io_lib:format(Query,Data),
 		 Connection <- get_connection(),
-		 Result <- do([error_m ||
-			    Result <- return(exec_query(Connection,SQL)),
-			    return_connection(Connection),
-			    Result]),
-		 apply_to_result(Fun,Result)
+		 % Result <- 
+		 do([error_m ||
+			Result <- return(exec_query(Connection,SQL,Fun)),
+			return_connection(Connection),
+			Result])
+		 % apply_to_result(Fun,Result)
 	      ]),
     transform_error(Res).
 
@@ -79,23 +80,32 @@ q(Query,Args,Fun) ->
 %%% Internal Helpers
 %% ===================================================================
 
-% ?TIME_EXEC.
-exec_query(Connection,Query) ->
+% % ?TIME_EXEC.
+% exec_query(Connection,Query) ->
+%     ?DBG("Query: ~s",[Query]),
+%     case pgsql:squery(Connection,Query) of
+% 	{error,Reason} ->
+% 	    {error,{query_error,Query,Reason}};
+% 	Result ->
+% 	    {ok,Result}
+%     end.
+
+exec_query(Connection,Query,Fun) ->
     ?DBG("Query: ~s",[Query]),
-    case pgsql:squery(Connection,Query) of
+    case squery(Connection,Query,Fun) of
 	{error,Reason} ->
 	    {error,{query_error,Query,Reason}};
 	Result ->
-	    {ok,Result}
-    end.
+	    Result
+    end.    
 
-apply_to_result(undefined,Result) ->  Result;
-apply_to_result(Fun,{ok,Cnt,Columns,Rows}) ->
-    {ok,Cnt,Columns,[Fun(Row) || Row <- Rows]};
-apply_to_result(Fun,{ok,Columns,Rows}) ->
-    {ok,Columns,[Fun(Row) || Row <- Rows]};
-apply_to_result(_Fun,Result) ->
-    Result.
+% apply_to_result(undefined,Result) ->  Result;
+% apply_to_result(Fun,{ok,Cnt,Columns,Rows}) ->
+%     {ok,Cnt,Columns,[Fun(Row) || Row <- Rows]};
+% apply_to_result(Fun,{ok,Columns,Rows}) ->
+%     {ok,Columns,[Fun(Row) || Row <- Rows]};
+% apply_to_result(_Fun,Result) ->
+%     Result.
     
 
 -spec transform_error(Error) -> {error,Reason} when
@@ -262,3 +272,43 @@ binary_to_boolean(null) -> undefined;
 binary_to_boolean(<<"True">>) -> true;
 binary_to_boolean(<<"False">>) -> false.
 				 
+
+%% == PostgreSQL Driver optimization ================================
+
+squery(C, Sql, Fun) ->
+    ok = pgsql_connection:squery(C, Sql),
+    case receive_results(C, [], Fun) of
+        [Result] -> Result;
+        Results  -> Results
+    end.
+
+receive_results(C, Results, Fun) ->
+    try receive_result(C, [], [], Fun) of
+        done    -> lists:reverse(Results);
+        R       -> receive_results(C, [R | Results], Fun)
+    catch
+        throw:E -> E
+    end.
+
+receive_result(C, Cols, Rows, Fun) ->
+    receive
+        {pgsql, C, {columns, Cols2}} ->
+            receive_result(C, Cols2, Rows, Fun);
+        {pgsql, C, {data, Row}} ->
+            receive_result(C, Cols, [Fun(Row) | Rows], Fun);
+        {pgsql, C, {error, _E} = Error} ->
+            Error;
+        {pgsql, C, {complete, {_Type, Count}}} ->
+            case Rows of
+                [] -> {ok, Count};
+                _L -> {ok, Count, Cols, lists:reverse(Rows)}
+            end;
+        {pgsql, C, {complete, _Type}} ->
+            {ok, Cols, lists:reverse(Rows)};
+        {pgsql, C, done} ->
+            done;
+        {pgsql, C, timeout} ->
+            throw({error, timeout});
+        {'EXIT', C, _Reason} ->
+            throw({error, closed})
+    end.

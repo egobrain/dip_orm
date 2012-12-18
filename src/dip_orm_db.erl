@@ -35,12 +35,10 @@ select(ModelName,Where,Order,Limit,Offset) ->
     LimitSQL = limit_to_sql(Limit,Module),
     OffsetSQL = offset_to_sql(Offset,Module),
     SQL = ["SELECT ",FieldsSQL," FROM ",TableSQL,JoinSQL,WhereSQL,OrderSQL,LimitSQL,OffsetSQL],
-    case dip_db:q(lists:flatten(SQL),
-		  lists:flatten(Args)) of
+    case dip_db:q(lists:flatten(SQL),lists:flatten(Args),Constructor) of
 	{ok,_Columns,Rows} ->
-	    {ok,[Constructor(Row) || Row <- Rows]};
-	{error,Reason} ->
-	    {error,Reason}
+	    {ok,Rows};
+	{error,_} = Err -> Err
     end.
 
 update(ModelName,Values,Where) ->
@@ -53,14 +51,12 @@ update(ModelName,Values,Where) ->
     {WhereSQL,Joins,Args2} = where_to_sql(Where2,Module),
     JoinSQL = joins_to_sql(lists:flatten(Joins),Module),
     SQL =  ["UPDATE ",TableSQL," SET ",UpdateSQL,JoinSQL,WhereSQL," RETURNING ",FieldsSQL],
-    case dip_db:q(lists:flatten(SQL),
-		  lists:flatten([Args,Args2])) of
-	{ok,_Cnt,_Columns,Rows} ->
-	    {ok,[Constructor(Row) || Row <- Rows]};
+    case dip_db:q(lists:flatten(SQL),lists:flatten([Args,Args2]),Constructor) of
+	{ok,_Cnt,_Columns,Rows}  ->
+	    {ok,Rows};
 	{ok,0} ->
 	    {error, undefined};
-	{error,Reason} ->
-	    {error,Reason}
+	{error,_} = Err -> Err
     end.
     
 insert(ModelName,Values) ->
@@ -71,12 +67,10 @@ insert(ModelName,Values) ->
     Constructor = Module:constructor(),
     {NamesSQL,ValuesSQL,Args} = insert_to_sql(Values,Module),
     SQL  = ["INSERT INTO ",TableSQL,"(",NamesSQL,") VALUES (",ValuesSQL,") RETURNING ",FieldsSQL],
-    case dip_db:q(lists:flatten(SQL),
-		  lists:flatten(Args)) of
+    case dip_db:q(lists:flatten(SQL),lists:flatten(Args),Constructor) of
 	{ok,_Count,_Columns,Rows} ->
-	    {ok,[Constructor(Row) || Row <- Rows]};
-	{error,Reason} ->
-	    {error,Reason}
+	    {ok,Rows};
+	{error,_} = Err -> Err
     end.
 
 delete(ModelName,Where) ->
@@ -92,10 +86,8 @@ delete(ModelName,Where) ->
 	      DeleteFlag ->
 		  ["UPDATE ",TableSQL," SET ",DeleteFlag," = TRUE ",JoinSQL,WhereSQL]
 	  end,
-    case dip_db:q(lists:flatten(SQL),
-		  lists:flatten(Args)) of
-	{error,Reason} ->
-	    {error,Reason};
+    case dip_db:q(lists:flatten(SQL),lists:flatten(Args)) of
+	{error,_} = Err -> Err;
 	{ok,0} -> {error,undefined};
 	{ok,0,_Columns,_fields} -> {error,undefined};
 	_ -> ok
@@ -163,7 +155,7 @@ fold_where_({'=<',Field,Value},Module) ->
 
 fold_where_({'not',Field},Module) ->
     {SQL,Joins,Args} = fold_where_(Field,Module),
-    {[" NOT ",SQL],Joins,Args};
+    {[" NOT ( ",SQL, ") "],Joins,Args};
 
 fold_where_({delete_flag,SQL},_Module) ->
     {SQL,[],[]}.

@@ -113,7 +113,7 @@ render_types(#model{name=Name,fields=Fields} = Model) ->
     Module = dip_orm_configs:model(db_module,Model),
     RecordFields = get_types_fields(Fields),
     RequiredFields = get_required_fields(Fields),
-    {ok,Content} = db_types_dtl:render([
+    {ok,Content} = types_db_dtl:render([
 					{model,Name},
 					{module,Module},
 					{fields,RecordFields},
@@ -189,7 +189,7 @@ get_exports([#field{name=Name,
 render_getters_and_setters(#model{name=Name,fields=Fields} = Model) ->
     Module = dip_orm_configs:model(db_module,Model),
     RecordFields = get_getters_and_setters_fields(Fields),
-    {ok,Content} = getters_and_setters_dtl:render([{model,Name},
+    {ok,Content} = getters_and_setters_db_dtl:render([{model,Name},
 						   {module,Module},
 						   {fields,RecordFields}]),
     dip_orm_ast:raw(Content).
@@ -228,7 +228,7 @@ get_getters_and_setters_fields(Fields) ->
 render_crud(#model{name=Name,fields=Fields} = Model) ->
     Module = dip_orm_configs:model(db_module,Model),
     IndexFields = get_index_fields(Fields),
-    {ok,Content} =  crud_dtl:render([{model,Name},
+    {ok,Content} =  crud_db_dtl:render([{model,Name},
 				     {module,Module},
 				     {index_fields,IndexFields}
 				    ]),
@@ -267,7 +267,7 @@ render_data_validators(#model{name=Name,fields=Fields} = Model) ->
     ValidatorFields = get_validator_fields(Fields),
     SetterFields = get_setter_fields(Fields),
     FieldsWhichUserCanRead = get_user_can_read_fields(Fields),
-    {ok,Content} = data_validators_dtl:render([{model,Name},
+    {ok,Content} = data_validators_db_dtl:render([{model,Name},
 					       {module,Module},
 					       {fields,ValidatorFields},
 					       {setter_fields,SetterFields},
@@ -343,7 +343,7 @@ render_internal_functions(#model{name=Name,fields=Fields} = Model) ->
     FieldsStr = get_db_str_fields(TableName,Fields),
     DbFields = get_db_read_fields(Fields),
     Links = get_db_links(Model),
-    {ok,Content} = internal_functions_dtl:render([
+    {ok,Content} = internal_functions_db_dtl:render([
 						  {model,Name},
 						  {module,Module},
 						  {table_name,TableName},
@@ -421,7 +421,7 @@ render_dtw(#model{fields=Fields,options=#options{dtw=true}} = Config) ->
 			SafeField ->
 			    dip_utils:template("~s",[[esc(Table),".",esc(SafeField)," = FALSE"]])
 		    end,
-    {ok,Content} =  dtw_dtl:render([{fields_str,dip_utils:template("~s",[string:join(FieldsStr,",")])},
+    {ok,Content} =  dtw_db_dtl:render([{fields_str,dip_utils:template("~s",[string:join(FieldsStr,",")])},
 				    {safe_delete_str,SafeDeleteStr},
 				    {fields,Db_fields}
 				    ]),

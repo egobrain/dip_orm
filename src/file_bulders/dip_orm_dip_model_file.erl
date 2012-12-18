@@ -94,7 +94,7 @@ write(_,_) -> ok.
 render_crud(#model{name=Name,fields=Fields} = Model) ->
     Module = dip_orm_configs:model(db_module,Model),
     IndexFields = ?DBM:get_index_fields(Fields),
-    {ok,Content} =  dip_crud_dtl:render([{model,Name},
+    {ok,Content} =  crud_dip_dtl:render([{model,Name},
 					 {module,Module},
 					 {index_fields,IndexFields}
 				    ]),
@@ -103,7 +103,7 @@ render_crud(#model{name=Name,fields=Fields} = Model) ->
 render_getters_and_setters(#model{name=Name,fields=Fields} = Model) ->
     Module = dip_orm_configs:model(db_module,Model),
     RecordFields = ?DBM:get_getters_and_setters_fields(Fields),
-    {ok,Content} = dip_getters_and_setters_dtl:render([{model,Name},
+    {ok,Content} = getters_and_setters_dip_dtl:render([{model,Name},
 						       {module,Module},
 						       {fields,RecordFields}]),
     dip_orm_ast:raw(Content).
@@ -111,14 +111,14 @@ render_getters_and_setters(#model{name=Name,fields=Fields} = Model) ->
 
 render_data_validators(#model{name=Name} = Model) ->
     Module = dip_orm_configs:model(db_module,Model),
-    {ok,Content} = dip_data_validators_dtl:render([{model,Name},
-						   {module,Module}]),
+    {ok,Content} = data_validators_dip_dtl:render([{model,Name},
+						       {module,Module}]),
     dip_orm_ast:raw(Content).
 
 render_footer(#model{name=Name,fields=Fields} = Model) ->
     Module = dip_orm_configs:model(db_module,Model),
     IndexFields = ?DBM:get_index_fields(Fields),
-    {ok,Content} = dip_footer_dtl:render([{model,Name},
+    {ok,Content} = footer_dip_dtl:render([{model,Name},
 					  {module,Module},
 					  {index_fields,IndexFields}
 					 ]),

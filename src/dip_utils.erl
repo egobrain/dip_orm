@@ -281,7 +281,9 @@ valid_type(binary,Bin) ->
 	    {ok,list_to_binary(Bin)};
 	true ->
 	    {error,wrong_format}
-    end.
+    end;
+valid_type(_,Value) ->
+    {ok,Value}.
     
 		       
 
