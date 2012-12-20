@@ -275,6 +275,8 @@ binary_to_boolean(<<"False">>) -> false.
 
 %% == PostgreSQL Driver optimization ================================
 
+squery(C, Sql, undefined) ->
+    pgsql:squery(C,Sql);
 squery(C, Sql, Fun) ->
     ok = pgsql_connection:squery(C, Sql),
     case receive_results(C, [], Fun) of
