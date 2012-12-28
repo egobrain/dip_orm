@@ -91,7 +91,7 @@ q(Query,Args,Fun) ->
 %     end.
 
 exec_query(Connection,Query,Fun) ->
-    ?DBG("Query: ~s",[Query]),
+    ?DBG("{query: \"~s\"}",[Query]),
     case squery(Connection,Query,Fun) of
 	{error,Reason} ->
 	    {error,{query_error,Query,Reason}};
@@ -120,13 +120,13 @@ transform_error({error,Reason}) ->
 			  <<"23505">> ->
 			      not_unique;
 			  _ ->
-			      ?LOG_ERROR("BD Error","Req: ~s~nError:~s in ~p",[Query,Description,Position]),
+			      ?ERR("BD Error [{error,\"~s\"},{pos,~p},{req, \"~s\"}]",[Description,Position,Query]),
 			      db_error
 		      end;
 		  bad_arg ->
 		      db_error;
 		  _ ->
-		      ?LOG_ERROR("BD Error"," ~p",[Reason]),
+		      ?ERR("BD Error: [{error,\" ~p\"}]",[Reason]),
 		      db_error
 	      end,
     {error,Reason2};
@@ -168,7 +168,7 @@ escape_arg({integer,Arg}) ->
 		    {_,[]} ->
 			{ok,Str};
 		    _ ->
-			?LOG_ERROR("BD Error","~p must be valid integer",[Arg]),
+			?ERR("BD Error [{arg,~p},{reason,\"must be valid integer\"}]",[Arg]),
 			{error,bad_arg}
 		end;
 	Bin when is_binary(Bin) ->
@@ -176,7 +176,7 @@ escape_arg({integer,Arg}) ->
 	Int when is_integer(Int) ->
 	    {ok,integer_to_list(Int)};
 	_ ->
-	    ?LOG_ERROR("BD Error","~p must be valid integer",[Arg]),
+	    ?ERR("BD Error [{arg,~p},{reason,\"must be valid integer\"}]",[Arg]),
 	    {error,bad_arg}
     end;
 escape_arg({number,Arg}) ->
@@ -190,7 +190,7 @@ escape_arg({number,Arg}) ->
 			    {_,[]} ->
 				{ok,Str};
 			    _ ->
-				?LOG_ERROR("BD Error","~p must be valid number",[Arg]),
+				?ERR("BD Error [{arg,~p},{reason,\"must be valid number\"}]",[Arg]),
 				{error,bad_arg}
 			end
 		end;	
@@ -201,7 +201,7 @@ escape_arg({number,Arg}) ->
 	Num when is_float(Num) ->
 	    {ok,lists:flatten(io_lib:format("~p",[Num]))};
 	_ ->
-	    ?LOG_ERROR("BD Error","~p must be valid number",[Arg]),
+	    ?ERR("BD Error [{arg,~p},{reason,\"must be valid number\"}]",[Arg]),
 	    {error,bad_arg}
     end;
 escape_arg({string,Arg}) ->
@@ -217,7 +217,7 @@ escape_arg({string,Arg}) ->
 	Num when is_float(Num) ->
 	    {ok,lists:flatten(io_lib:format("'~p'",[Num]))};
 	_ ->
-	    ?LOG_ERROR("BD Error","~p must be valid string",[Arg]),
+	    ?ERR("BD Error [{arg,~p},{reason,\"must be valid number\"}]",[Arg]),
 	    {error,bad_arg}
     end;
 escape_arg({datetime,Arg}) ->
@@ -225,7 +225,7 @@ escape_arg({datetime,Arg}) ->
 	{{Y,M,D},{Hh,Mm,Ss}} ->
 	    {ok,io_lib:format("'~p-~p-~p ~p:~p:~p'",[Y,M,D,Hh,Mm,Ss])};
 	_ ->
-	    ?LOG_ERROR("BD Error","~p must be valid date",[Arg]),
+	    ?ERR("BD Error [{arg,~p},{reason,\"must be valid date\"}]",[Arg]),
 	    {error,bad_arg}
     end.
 
