@@ -91,22 +91,13 @@ q(Query,Args,Fun) ->
 %     end.
 
 exec_query(Connection,Query,Fun) ->
-    ?DBG("{query: \"~s\"}",[Query]),
+    % ?DBG("{query: \"~s\"}",[Query]),
     case squery(Connection,Query,Fun) of
 	{error,Reason} ->
 	    {error,{query_error,Query,Reason}};
 	Result ->
 	    Result
     end.    
-
-% apply_to_result(undefined,Result) ->  Result;
-% apply_to_result(Fun,{ok,Cnt,Columns,Rows}) ->
-%     {ok,Cnt,Columns,[Fun(Row) || Row <- Rows]};
-% apply_to_result(Fun,{ok,Columns,Rows}) ->
-%     {ok,Columns,[Fun(Row) || Row <- Rows]};
-% apply_to_result(_Fun,Result) ->
-%     Result.
-    
 
 -spec transform_error(Error) -> {error,Reason} when
     Error :: {error,any()},
