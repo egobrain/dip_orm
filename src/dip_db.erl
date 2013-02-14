@@ -218,7 +218,19 @@ escape_arg({datetime,Arg}) ->
 	_ ->
 	    ?ERR("BD Error [{arg,~p},{reason,\"must be valid date\"}]",[Arg]),
 	    {error,bad_arg}
+    end;
+escape_arg({boolean,Arg}) ->
+    case Arg of
+	true ->
+	    {ok,"TRUE"};
+	false ->
+	    {ok,"FALSE"};
+	_ ->
+	    ?ERR("BD Error [{arg,~p},{reason,\"must be valid boolean\"}]",[Arg]),
+	    {error,bad_arg}
     end.
+
+
 
 -spec binary_to_integer(binary()) -> integer()
                       ;(null) -> undefined.					 

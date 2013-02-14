@@ -583,7 +583,7 @@ parse_db_options(FieldOptions,#field{
     RecType = RecOpts#record_options.type,
     do([error_m ||
 	   Type <- default(option,db_type,FieldOptions,default_db_type(RecType)),
-	   valid_variants(db_type,Type,[string,integer,datetime,number]),
+	   valid_variants(db_type,Type,[string,integer,datetime,number,boolean]),
 	   Alias <- default(option,db_alias,FieldOptions,Name),
 	   Alias2 <- not_null_binary(db_alias,Alias),
 	   Link <- not_required(option,link,FieldOptions),
@@ -767,6 +767,7 @@ default_db_type(integer) -> {ok,integer};
 default_db_type(non_neg_integer) -> {ok,integer};
 default_db_type(float) -> {ok,number};
 default_db_type(binary) -> {ok,string};
+default_db_type(boolean) -> {ok,boolean};
 default_db_type(Else) ->
     Reason = dip_utils:template("Unknown default db_type for \"~p\"",[Else]),
     {error,{db_type,Reason}}.
