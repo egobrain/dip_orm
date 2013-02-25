@@ -1,5 +1,5 @@
 %% -*- erlang -*-
-
+-define(TABLE_NAME, " \"{{table_name}}\" ").
 -define(FIELDS_SQL, " {{fields_str}} ").
 -define(SAFE_DELETE," {{safe_delete_str}}").
 

@@ -421,10 +421,12 @@ render_dtw(#model{fields=Fields,options=#options{dtw=true}} = Config) ->
 			SafeField ->
 			    dip_utils:template("~s",[[esc(Table),".",esc(SafeField)," = FALSE"]])
 		    end,
-    {ok,Content} =  dtw_db_dtl:render([{fields_str,dip_utils:template("~s",[string:join(FieldsStr,",")])},
-				    {safe_delete_str,SafeDeleteStr},
-				    {fields,Db_fields}
-				    ]),
+    {ok,Content} =  dtw_db_dtl:render([
+				       {table_name,Table},
+				       {fields_str,dip_utils:template("~s",[string:join(FieldsStr,",")])},
+				       {safe_delete_str,SafeDeleteStr},
+				       {fields,Db_fields}
+				      ]),
     dip_orm_ast:raw(Content);
 render_dtw(#model{options=#options{dtw=false}}) ->
     dip_orm_ast:raw("").
