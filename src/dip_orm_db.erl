@@ -29,7 +29,9 @@ select(ModelName,Where,Order,Limit,Offset) ->
     FieldsSQL = Module:fields_sql(),
     Constructor = Module:constructor(),    
     Where2 = Module:append_safe_delete(Where),
+    ?DBG(Where2),
     {WhereSQL,Joins,Args} = where_to_sql(Where2,Module),
+    ?DBG(Joins),
     {OrderSQL,Joins2} = order_to_sql(Order,Module),
     JoinSQL = joins_to_sql(lists:flatten([Joins,Joins2]),Module),
     LimitSQL = limit_to_sql(Limit,Module),
@@ -170,7 +172,9 @@ operation_to_sql_(Op,RemoteModule,FieldName,Value,Module) ->
     {ok,{DbFieldName,DbFieldType}} = RemoteModule:db_field_opts(FieldName),
     Join = case RemoteModule =:= Module of
 	       true -> [];
-	       false -> RemoteModule
+	       false ->
+		   {ok,RemoteModel} = dip_orm:module_to_model(RemoteModule),
+		   RemoteModel
 	   end,
     SQL = [DbFieldName,Op," ~s "],
     {SQL,Join,[{DbFieldType,Value}]}.
@@ -196,7 +200,9 @@ order_to_sql_(RemoteModule,FieldName,OrderType,Module) ->
     {ok,{DbFieldName,_DbFieldType}} = RemoteModule:db_field_opts(FieldName),
     Join = case RemoteModule =:= Module of
 	       true -> [];
-	       false -> RemoteModule
+	       false ->
+		   {ok,RemoteModel} = dip_orm:module_to_model(RemoteModule),
+		   RemoteModel
 	   end,
     OrderTypeSQL = order_type_to_sql(OrderType),
     SQL = [" ORDER BY ",DbFieldName," ",OrderTypeSQL],
@@ -208,6 +214,7 @@ order_type_to_sql(desc) -> " DESC ".
 %% ===================================================================
 
 joins_to_sql(Models,Module) ->
+    ?DBG({Models,Module}),
     UModels = lists:usort(Models),
     [begin
 	 {ok,LinkSQL} = Module:link_sql(M),
