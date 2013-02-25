@@ -272,8 +272,8 @@ binary_to_datetime(Bin) ->
 -spec binary_to_boolean(binary()) -> true | false;
                        (null) -> undefined.
 binary_to_boolean(null) -> undefined;
-binary_to_boolean(<<"True">>) -> true;
-binary_to_boolean(<<"False">>) -> false.
+binary_to_boolean(<<"t">>) -> true;
+binary_to_boolean(<<"f">>) -> false.
 				 
 
 %% == PostgreSQL Driver optimization ================================
