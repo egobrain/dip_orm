@@ -30,12 +30,11 @@ field_constructor({{f.name}}) ->
 	    Value = dip_db:binary_to_{{f.db_type}}(Binary),
 	    {{model|capfirst}}#{{module}}{ {{f.name}} = Value }
     end
-%|    {% if not forloop.last %}
 %\
 ;
-%|    {% endif %}
 %| {% endfor %}
 %\
+
 field_constructor(Fun) when is_function(Fun) ->
     Fun.
 
