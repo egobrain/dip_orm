@@ -36,7 +36,8 @@ field_constructor({{f.name}}) ->
 %|    {% endif %}
 %| {% endfor %}
 %\
-.
+field_constructor(Fun) when is_function(Fun) ->
+    Fun.
 
 constructor() ->
     constructor([
@@ -118,7 +119,7 @@ table_sql() ->
 
 %| {% for l in links %}
 link_sql({{ l.remote_model }}) ->
-    "{{ l.sql|addslashes }}";
+    {ok,"{{ l.sql|addslashes }}"};
 %| {% endfor %}
 link_sql(Model) ->
     {error,{Model,unknown}}.
