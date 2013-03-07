@@ -141,6 +141,8 @@ fold_where_({'orelse',Left,Right},Module) ->
     {SQL1,Joins1,Arg1} = fold_where_(Left,Module),
     {SQL2,Joins2,Arg2} = fold_where_(Right,Module),
     {["(",SQL1," OR ",SQL2,")"],[Joins1,Joins2],[Arg1,Arg2]};
+fold_where_({raw,SQL,Args},Module) ->
+    {SQL,[],Args};
 
 fold_where_({'=',Field,Value},Module) ->
     operation_to_sql("=",Field,Value,Module);
