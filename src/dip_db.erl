@@ -143,11 +143,16 @@ escape_args(Args) ->
 escape_args([],Result) ->
     {ok,lists:reverse(Result)};
 escape_args([H|T],Result) ->
-    case escape_arg(H) of
-	{ok,Arg} ->
-	    escape_args(T,[Arg|Result]);
-	{error,bad_arg} ->
-	    {error,bad_arg}
+    case H of
+	{_,Null} when Null =:= undefined orelse Null =:= null ->
+	    {ok, "NULL"};
+	_ ->
+	    case escape_arg(H) of
+		{ok,Arg} ->
+		    escape_args(T,[Arg|Result]);
+		{error,bad_arg} ->
+		    {error,bad_arg}
+	    end
     end.
     
 
