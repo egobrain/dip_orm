@@ -29,9 +29,7 @@ select(ModelName,Where,Order,Limit,Offset) ->
     FieldsSQL = Module:fields_sql(),
     Constructor = Module:constructor(),    
     Where2 = Module:append_safe_delete(Where),
-    ?DBG(Where2),
     {WhereSQL,Joins,Args} = where_to_sql(Where2,Module),
-    ?DBG(Joins),
     {OrderSQL,Joins2} = order_to_sql(Order,Module),
     JoinSQL = joins_to_sql(lists:flatten([Joins,Joins2]),Module),
     LimitSQL = limit_to_sql(Limit,Module),
@@ -63,7 +61,6 @@ update(ModelName,Values,Where) ->
     
 insert(ModelName,Values) ->
     {ok,Module} = dip_orm:model_to_module(ModelName),
-
     TableSQL = Module:table_sql(),
     FieldsSQL = Module:fields_sql(),
     Constructor = Module:constructor(),
@@ -141,7 +138,7 @@ fold_where_({'orelse',Left,Right},Module) ->
     {SQL1,Joins1,Arg1} = fold_where_(Left,Module),
     {SQL2,Joins2,Arg2} = fold_where_(Right,Module),
     {["(",SQL1," OR ",SQL2,")"],[Joins1,Joins2],[Arg1,Arg2]};
-fold_where_({raw,SQL,Args},Module) ->
+fold_where_({raw,SQL,Args},_Module) ->
     {SQL,[],Args};
 
 fold_where_({'=',Field,Value},Module) ->
@@ -216,7 +213,6 @@ order_type_to_sql(desc) -> " DESC ".
 %% ===================================================================
 
 joins_to_sql(Models,Module) ->
-    ?DBG({Models,Module}),
     UModels = lists:usort(Models),
     [begin
 	 {ok,LinkSQL} = Module:link_sql(M),

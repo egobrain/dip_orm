@@ -80,9 +80,7 @@ q(Query,Args,Fun) ->
 %%% Internal Helpers
 %% ===================================================================
 
-% % ?TIME_EXEC.
 % exec_query(Connection,Query) ->
-%     ?DBG("Query: ~s",[Query]),
 %     case pgsql:squery(Connection,Query) of
 % 	{error,Reason} ->
 % 	    {error,{query_error,Query,Reason}};
@@ -91,7 +89,6 @@ q(Query,Args,Fun) ->
 %     end.
 
 exec_query(Connection,Query,Fun) ->
-    % ?DBG("{query: \"~s\"}",[Query]),
     case squery(Connection,Query,Fun) of
 	{error,Reason} ->
 	    {error,{query_error,Query,Reason}};

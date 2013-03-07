@@ -212,11 +212,6 @@ dict_to_models(Dict) ->
     {_,Models} = lists:unzip(Proplist),
     Models.
 
-% print_dict_links(Dict) ->
-%     Models = dict_to_models(Dict),
-%     ?DBG("Models: ~p",[Models]),
-%     ?DBG(" ~n =========================================== ~n ").
-
 fill_links_db_options(ModelsDict) ->
     FoldFun = fun(#model{name=LocalModelName,links=Links} = LocalModel,Dict) ->
 		      LocalTable = model(db_table,LocalModel),
@@ -458,7 +453,7 @@ normalize_({Filename,Name,Config}) ->
 		    ]),
     case Res of
 	{error,Reason} ->
-	    ?DBG("File: ~s~nError: ~p",[Filename,Reason]);
+	    ?ERR("File: ~s~nError: ~p",[Filename,Reason]);
 	_ -> ok
     end,
     Res.

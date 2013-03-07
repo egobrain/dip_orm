@@ -235,8 +235,7 @@ set_order_by([{call,_Line,{atom,Line2,order_by},OrderAst}|RestArgs],Req) ->
 	[] ->
 	    Reason = "Order by canot be ampty",
 	    {error,{Line2,Reason}};
-	E ->
-	    ?DBG(E),
+	_ ->
 	    Reason = "Too many arguments",
 	    {error,{Line2,Reason}}
     end;
@@ -537,10 +536,6 @@ ast(function,Module,Function,Args) ->
      Args
     }.
 
-atom_to_binary(Atom) ->
-    list_to_binary(
-      atom_to_list(Atom)).
-
 ast_error(Ast,Reason) ->
     Line = element(2,Ast),
     {error,{Line,Reason}}.
@@ -549,7 +544,6 @@ ast_error(Ast,Reason) ->
 model_config(ModelName) ->
     case dip_orm:model_config(ModelName) of
 	{error,{ModelName,unknown}} ->
-	    ?DBG("~p -> ",[ModelName]),
 	    Reason = dip_utils:template("Uknown model: '~s'",[ModelName]),
 	    {error,Reason};
 	Res -> Res
