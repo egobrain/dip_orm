@@ -84,11 +84,11 @@ insert(ModelName,Values) ->
 delete(ModelName,Where) ->
     {ok,Module} = dip_orm:model_to_module(ModelName),
 
-    TableSQL = Module:table_sql(),
+    TableSQL = Module:'$meta'(table_name),
     Where2 = append_safe_delete(Where,Module:'$meta'(safe_delete_flag)),
     {WhereSQL,Args} = where_to_sql(Where2,Module),
     JoinSQL = "",
-    SQL = case Module:safe_delete_flag() of
+    SQL = case Module:'$meta'(safe_delete_flag) of
 	      undefined ->
 		  ["DELETE FROM ",TableSQL,JoinSQL,WhereSQL];		  
 	      DeleteFlag ->
@@ -235,3 +235,6 @@ append_safe_delete(Where,SafeDelete) ->
 	    Raw = {raw,[Field," = False"],[]},
 	    {'andalso',Where,Raw}
     end.
+   
+   
+  
