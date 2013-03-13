@@ -65,13 +65,8 @@ write(Model, #global_config{output_src_folder=OutFolder}) ->
 					  ]),
 		       dip_orm_ast:comment("Internal functions"),
 		       dip_orm_ast:export([
-					   {safe_delete_flag,0},
-					   {db_field_opts,1},
-					   {db_short_field_opts,1},
-					   {append_safe_delete,1},
-					   {fields_sql,0},
-					   {table_sql,0},
-					   {link_sql,1},
+					   {'$meta',1},
+					   {'$meta',2},
 					   {field_constructor,1} % REMOVE THIS !!!
 					  ]),
 		       dip_orm_ast:export([
@@ -335,6 +330,7 @@ get_user_can_read_fields(Fields) ->
 
 render_internal_functions(#model{name=Name,fields=Fields} = Model) ->
     Module = dip_orm_configs:model(db_module,Model),
+    ExternalFields = get_external_function_fields(Fields),
     InternalFields = get_internal_function_fields(Fields),
     CustomInitFields = get_custom_init_fields(Fields),
     WriteOnlyFields = get_write_only_fields(Fields),
@@ -342,35 +338,49 @@ render_internal_functions(#model{name=Name,fields=Fields} = Model) ->
     SafeDelete = dip_orm_configs:model(safe_delete,Model),
     FieldsStr = get_db_str_fields(TableName,Fields),
     DbFields = get_db_read_fields(Fields),
-    Links = get_db_links(Model),
-    {ok,Content} = internal_functions_db_dtl:render([
-						  {model,Name},
-						  {module,Module},
-						  {table_name,TableName},
-						  {fields,InternalFields},
-						  {db_fields,DbFields},
-						  {custom_init_fields,CustomInitFields},
-						  {write_only_fields,WriteOnlyFields},
-						  {delete_flag,SafeDelete},
-						  {fields_sql,dip_utils:template("~s",[string:join(FieldsStr,",")])},
-						  {links,Links}
-						 ]),
+    {ok,Content} = internal_functions_db_dtl:render(
+		     [
+		      {model,Name},
+		      {module,Module},
+		      {table_name,TableName},
+		      {external_fields,ExternalFields},
+		      {fields,InternalFields},
+		      {db_fields,DbFields},
+		      {custom_init_fields,CustomInitFields},
+		      {write_only_fields,WriteOnlyFields},
+		      {delete_flag,SafeDelete},
+		      {fields_sql,dip_utils:template("~s",[string:join(FieldsStr,",")])}
+		     ]),
     dip_orm_ast:raw(Content).
 
 get_write_only_fields(Fields) ->
     FMapFun = fun(#field{name=Name,
 			 is_in_database=true,
 			 record_options=#record_options{
-			   mode=#access_mode{
-			     sw=true,
-			     sr=false
-			    }}}) ->
+					   mode=#access_mode{
+						   sw=true,
+						   sr=false
+						  }}}) ->
 		      {ok,[{name,Name}]};
 		 (_) -> filtered
 	      end,			   
     dip_utils:map_filter(FMapFun,Fields).
 
-    
+get_external_function_fields(Fields) ->
+    FMapFun = fun(#field{name=Name,
+			 from_db = true,
+			 db_options=#db_options{
+				       type=Db_type
+				      }}) ->
+		      {ok,[
+			   {name,Name},
+			   {db_type,Db_type}
+			  ]};
+		 (_) -> filtered
+	      end,
+    dip_utils:map_filter(FMapFun,Fields).
+
+
 get_internal_function_fields(Fields) ->
     FMapFun = fun(#field{name=Name,
 			 is_in_database=true,
@@ -400,11 +410,6 @@ get_custom_init_fields(Fields) ->
 	      end,
     dip_utils:map_filter(FMapFun,Fields).
 
-
-
-get_db_links(#model{links=Links}) ->
-    [[{remote_model,dip_orm_configs:link(remote_model,L)},
-      {sql,io_to_binary(dip_orm_configs:link_to_join(L))}] || L <- Links].
 
 %% ===================================================================
 %%% Internal helpers
@@ -465,10 +470,10 @@ get_db_read_fields(Fields) ->
 get_db_str_fields(TableName,Fields) ->
     TableEsc = esc(TableName),
     FMapFun = fun(#field{is_in_database=true,
-			record_options=#record_options{
-			 mode=#access_mode{
-			  sr=true
-			  }}} = Field)  ->
+			 record_options=#record_options{
+					   mode=#access_mode{
+						   sr=true
+						  }}} = Field)  ->
 		      Db_alias = dip_orm_configs:field(db_alias,Field),
 		      {ok,[TableEsc,".",esc(Db_alias)]};
 		 (_) -> filtered
@@ -500,5 +505,3 @@ binary_to_atom(Bin) ->
 esc(Str) ->
     ["\\\"",Str,"\\\""].
 
-io_to_binary(List) ->
-    list_to_binary(dip_utils:template("~s",[List])).

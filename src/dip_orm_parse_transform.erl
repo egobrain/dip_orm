@@ -387,10 +387,7 @@ check_link({field,RemoteModel,_Field},#request{target_model=TargetModel} = Req) 
 	true ->
 	    {ok,Req};
 	false ->
-	    case dip_orm_configs:find_link(TargetModel,RemoteModel) of
-		{ok,_Link} -> ok;
-		{error,Reason} -> {error,Reason}
-	    end
+	    {error,unsupported}
     end.
 
 %% ===================================================================

@@ -40,10 +40,9 @@ models(RebarConfig_,_AppFile) ->
 	   Models <- dip_utils:success_map(
 			       dip_orm_configs:get_config(_,GlobalConfig),
 			       RawModels),
-	   Models2 <- dip_orm_configs:fill_links(Models),
-	   fold(dip_orm_model_file:write(_,GlobalConfig),Models2),
-	   fold(dip_orm_dip_model_file:write(_,GlobalConfig),Models2),
-	   dip_orm_config_file:write(dip_orm,Models2,GlobalConfig)
+	   fold(dip_orm_model_file:write(_,GlobalConfig),Models),
+	   fold(dip_orm_dip_model_file:write(_,GlobalConfig),Models),
+	   dip_orm_config_file:write(dip_orm,Models,GlobalConfig)
 	  ]).
     
 %% ===================================================================

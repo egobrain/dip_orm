@@ -3,8 +3,7 @@
 	  name :: model_name(),    % Global model name
 	  options :: options(),    % Global options for model
 	  fields :: [field()],     % fields with options
-	  filename :: field_name(),  % Filename where model stores
-	  links :: [db_link()]     % links on other models
+	  filename :: field_name()  % Filename where model stores
 	 }).
 -record(options,{
 	  table :: table_name(),   % table_name
@@ -25,13 +24,12 @@
 	  record_options :: record_options(), % Editional record options
 
 	  is_in_database :: boolean(), % Set to true if field value stores in state DB
+	  from_db :: boolean(), % field can be stored in db
 	  db_options :: db_options() % Editional DB record options
 	 }).
 -record(db_options,{
 	  type :: string | integer | datetime,
-	  alias :: binary(), % Name of field in DB
-	  is_link :: boolean(),
-	  link :: {model_name(),field_name()}
+	  alias :: binary() % Name of field in DB
 	 }).
 -record(record_options,{
 	  type :: field_type(), % Record type. Usefull for dializer
@@ -43,48 +41,6 @@
 	  init :: true | false, % Fields which are needed for to init
 	  validators :: [validator_function()]
 	 }).	  
-
--record(many_to_one,{
-	  local_model :: model_name(),
-	  local_id :: field_name(),
-	  remote_model :: model_name(),
-	  remote_id   :: field_name(),
-
-	  local_table :: table_name(),
-	  local_id_alias :: field_name(),
-	  remote_table :: table_name(),
-	  remote_id_alias :: field_name()
-	 }).
-
--record(one_to_many,{
-	  local_model :: model_name(),
-	  local_id :: field_name(),
-	  remote_model :: model_name(),
-	  remote_id   :: field_name(),
-
-	  local_table :: table_name(),
-	  local_id_alias :: field_name(),
-	  remote_table :: table_name(),
-	  remote_id_alias :: field_name()
-	 }).
-
--record(many_to_many,{
-	  local_model :: model_name(),
-	  local_id :: field_name(),
-	  link_model :: model_name(),
-	  link_local_id :: field_name(),
-	  link_remote_id :: field_name(),
-	  remote_model :: model_name(),
-	  remote_id :: field_name(),
-
-	  local_table :: table_name(),
-	  local_id_alias :: field_name(),
-	  link_table :: table_name(),
-	  link_local_id_alias :: field_name(),
-	  link_remote_id_alias :: field_name(),
-	  remote_table :: table_name(),
-	  remote_id_alias :: field_name()
-	 }).
 
 -record(validator_function,{
 	  module :: model_name(),
@@ -118,7 +74,6 @@
 -type options() :: #options{}.
 -type model() :: #model{}.
 -type field() :: #field{}.
--type db_link() :: #many_to_one{} | #one_to_many{} | #many_to_many{}.
 -type access_mode() :: #access_mode{}.
 -type validator_function() :: #validator_function{}.
 

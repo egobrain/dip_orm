@@ -5,12 +5,7 @@
 % -include("decorators.hrl").
 
 -export([q/1,q/2,q/3]).
--export([binary_to_integer/1,
-	 binary_to_number/1,
-	 binary_to_string/1,
-	 binary_to_datetime/1,
-	 binary_to_boolean/1
-	]).
+-export([from_binary/2]).
 
 % Возникла ошибка в receive_results если во время обработки одного запроса выполнить еще один через то же подключение
 % Для решения этой проблемы нужно в каждом запросе добавлять маркер уникальности и проверять его во время разбора результата.
@@ -67,26 +62,16 @@ q(Query,Args,Fun) ->
 		 Data <- escape_args(Args),
 		 SQL = io_lib:format(Query,Data),
 		 Connection <- get_connection(),
-		 % Result <- 
 		 do([error_m ||
 			Result <- return(exec_query(Connection,SQL,Fun)),
 			return_connection(Connection),
 			Result])
-		 % apply_to_result(Fun,Result)
 	      ]),
     transform_error(Res).
 
 %% ===================================================================
 %%% Internal Helpers
 %% ===================================================================
-
-% exec_query(Connection,Query) ->
-%     case pgsql:squery(Connection,Query) of
-% 	{error,Reason} ->
-% 	    {error,{query_error,Query,Reason}};
-% 	Result ->
-% 	    {ok,Result}
-%     end.
 
 exec_query(Connection,Query,Fun) ->
     case squery(Connection,Query,Fun) of
@@ -232,52 +217,6 @@ escape_arg({boolean,Arg}) ->
 	    {error,bad_arg}
     end.
 
-
-
--spec binary_to_integer(binary()) -> integer()
-                      ;(null) -> undefined.					 
-binary_to_integer(null) -> undefined;
-binary_to_integer(Bin) ->
-    List = binary_to_list(Bin),
-    {Int,[]} = string:to_integer(List),
-    Int.
-
--spec binary_to_number(binary()) -> float()
-                      ;(null) -> undefined.
-binary_to_number(null) -> undefined;
-binary_to_number(Bin) ->
-    List = binary_to_list(Bin),
-    case string:to_float(List) of
-	{Float,[]} -> Float;
-	_ ->
-	    case string:to_integer(List) of
-		{Int,[]} -> float(Int);
-		_ ->
-		    throw(no_number)
-	    end
-    end.
-
--spec binary_to_string(binary()) -> binary()
-                      ;(null) -> undefined.
-binary_to_string(null) -> undefined;
-binary_to_string(Bin) ->
-    Bin.
-
-% @TODO: implement this function
--spec binary_to_datetime(binary()) -> binary();
-                        (null) -> undefined.
-binary_to_datetime(null) -> undefined;
-binary_to_datetime(Bin) ->
-    Bin.
-
-
--spec binary_to_boolean(binary()) -> true | false;
-                       (null) -> undefined.
-binary_to_boolean(null) -> undefined;
-binary_to_boolean(<<"t">>) -> true;
-binary_to_boolean(<<"f">>) -> false.
-				 
-
 %% == PostgreSQL Driver optimization ================================
 
 squery(C, Sql, undefined) ->
@@ -318,4 +257,40 @@ receive_result(C, Cols, Rows, Fun) ->
             throw({error, timeout});
         {'EXIT', C, _Reason} ->
             throw({error, closed})
+    end.
+
+
+
+
+
+
+-spec from_binary(integer, binary()) -> integer();
+		 (number,  binary()) -> integer();
+		 (string,  binary()) -> string();
+		 (datetime,binary()) -> binary();
+		 (boolean, binary()) -> boolean();
+		 (_,       null    ) -> undefined.
+from_binary(_,null) ->
+    undefined;
+from_binary(integer,Bin) ->
+    List = binary_to_list(Bin),
+    {Int,[]} = string:to_integer(List),
+    Int;
+from_binary(number,Bin) ->
+    List = binary_to_list(Bin),
+    case string:to_float(List) of
+	{Float,[]} -> Float;
+	_ ->
+	    case string:to_integer(List) of
+		{Int,[]} -> float(Int);
+		_ ->
+		    throw(no_number)
+	    end
+    end;
+from_binary(string, Bin) ->  Bin;
+from_binary(datetime, Bin) ->  Bin;
+from_binary(boolean, Bin) ->
+    case Bin of
+	<<"t">> -> true;
+	<<"f">> -> false
     end.
