@@ -40,12 +40,12 @@
 %% ===================================================================
 
 %% @private Exequte query or fanction on db connection
--spec q(Query :: string()) ->  sql_result(_Tuple) | {error,db_error} | {error,not_unique}.
+-spec q(Query :: iolist()) ->  sql_result(_Tuple) | {error,db_error} | {error,not_unique}.
 q(Query) ->
     q(Query,[]).
 
 -spec q(Query, Args) ->  sql_result(Object) | {error, Reason } when
-    Query :: string(),
+    Query :: iolist(),
     Args :: [sql_arg(any())],
     Object :: [tuple()],
     Reason :: db_error|not_unique.        
@@ -53,14 +53,15 @@ q(Patter,Args) ->
     q(Patter,Args,undefined).
 
 -spec q(Query, Args,Fun) ->  sql_result(Object) | {error, Reason} when
-    Query :: string(),
+    Query :: iolist(),
     Args :: [sql_arg(any())],
     Fun :: fun((tuple()) -> Object),
     Reason :: db_error|not_unique.        
 q(Query,Args,Fun) ->
     Res = do([error_m ||
 		 Data <- escape_args(Args),
-		 SQL = io_lib:format(Query,Data),
+		 QueryStr = iolist_to_string(Query),
+		 SQL = io_lib:format(QueryStr,Data),
 		 Connection <- get_connection(),
 		 do([error_m ||
 			Result <- return(exec_query(Connection,SQL,Fun)),
@@ -294,3 +295,6 @@ from_binary(boolean, Bin) ->
 	<<"t">> -> true;
 	<<"f">> -> false
     end.
+
+iolist_to_string(IOList) ->
+    lists:flatten(io_lib:format("~s",[IOList])).
