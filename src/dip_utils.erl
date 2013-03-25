@@ -282,6 +282,22 @@ valid_type(binary,Bin) ->
 	true ->
 	    {error,wrong_format}
     end;
+valid_type(number,Val) ->
+    if is_binary(Val) ->
+	    case string:to_float(binary_to_list(Val)) of
+		{Res,[]} -> {ok,Res};
+		_ -> {error,wrong_format}
+	    end;
+       is_list(Val) ->
+	    case string:to_float(Val) of
+		{Res,[]} -> {ok,Res};
+		_ -> {error,wrong_format}
+	    end;
+       is_float(Val) ->
+	    {ok,Val};
+       is_integer(Val) ->
+	    {ok,Val}
+    end;
 valid_type(_,Value) ->
     {ok,Value}.
     
