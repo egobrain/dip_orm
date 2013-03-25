@@ -128,7 +128,7 @@ escape_args([],Result) ->
 escape_args([H|T],Result) ->
     case H of
 	{_,Null} when Null =:= undefined orelse Null =:= null ->
-	    {ok, "NULL"};
+	    escape_args(T,[<<"NULL">>|Result]);
 	_ ->
 	    case escape_arg(H) of
 		{ok,Arg} ->
