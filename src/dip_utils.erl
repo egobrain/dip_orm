@@ -298,6 +298,11 @@ valid_type(number,Val) ->
        is_integer(Val) ->
 	    {ok,Val}
     end;
+valid_type({calendar,datetime1970},Value) ->
+    case Value of
+	{{_YY,_MM,_DD},{_Hh,_Mm,_Ss}} -> {ok, Value};
+	_ -> {error,wrong_format}
+    end;
 valid_type(_,Value) ->
     {ok,Value}.
     
