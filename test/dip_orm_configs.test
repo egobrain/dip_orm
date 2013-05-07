@@ -9,628 +9,628 @@ getters_test_() ->
     Config = [{opt1,1},opt2,{opt3,false}],
     [
      {"option",fun() ->
-			{ok,1} = option(opt1,Config),
-			{ok,false} = option(opt3,Config),
-			{error,undefined} = option(opt2,Config),
-			{error,undefined} = option(unknown,Config)
-		end},
+					   {ok,1} = option(opt1,Config),
+					   {ok,false} = option(opt3,Config),
+					   {error,undefined} = option(opt2,Config),
+					   {error,undefined} = option(unknown,Config)
+			   end},
      {"flag",fun() ->
-		     {error,{wrong_format,_}} = flag(opt1,Config),
-		     {ok,true} = flag(opt2,Config),
-		     {ok,false} = flag(opt3,Config),
-		     {error,undefined} = flag(unknown,Config)
-	       end},
+					 {error,{wrong_format,_}} = flag(opt1,Config),
+					 {ok,true} = flag(opt2,Config),
+					 {ok,false} = flag(opt3,Config),
+					 {error,undefined} = flag(unknown,Config)
+			 end},
      {"option or flag",fun() ->
-			       {ok,1} = option_or_flag(opt1,Config),
-			       {ok,true} = option_or_flag(opt2,Config),
-			       {ok,false} = option_or_flag(opt3,Config),
-			       {error,undefined} = option_or_flag(unknown,Config)
-		       end},
+							   {ok,1} = option_or_flag(opt1,Config),
+							   {ok,true} = option_or_flag(opt2,Config),
+							   {ok,false} = option_or_flag(opt3,Config),
+							   {error,undefined} = option_or_flag(unknown,Config)
+					   end},
      {"required", fun() ->
-			  {ok,1} = required(option,opt1,Config),
-			  {error,{opt2,required}} = required(option,opt2,Config),
-			  {ok,false} = required(option,opt3,Config),
-			  {error,{unknown,required}} = required(option,unknown,Config)
-		  end},
+						  {ok,1} = required(option,opt1,Config),
+						  {error,{opt2,required}} = required(option,opt2,Config),
+						  {ok,false} = required(option,opt3,Config),
+						  {error,{unknown,required}} = required(option,unknown,Config)
+				  end},
      {"not required", fun() ->
-			      {ok,1} = not_required(option,opt1,Config),
-			      {ok,undefined} = not_required(option,opt2,Config),
-			      {ok,false} = not_required(option,opt3,Config),
-			      {ok,undefined} = not_required(option,unknown,Config)
-		      end},
+							  {ok,1} = not_required(option,opt1,Config),
+							  {ok,undefined} = not_required(option,opt2,Config),
+							  {ok,false} = not_required(option,opt3,Config),
+							  {ok,undefined} = not_required(option,unknown,Config)
+					  end},
      {"default", fun() ->
-			 {ok,1} = default(option,opt1,Config,atom),
-			 {ok,atom} = default(option,opt2,Config,atom),
-			 {ok,false} = default(option,opt3,Config,"string"),
-			 {ok,"string"} = default(option,unknown,Config,"string"),
+						 {ok,1} = default(option,opt1,Config,atom),
+						 {ok,atom} = default(option,opt2,Config,atom),
+						 {ok,false} = default(option,opt3,Config,"string"),
+						 {ok,"string"} = default(option,unknown,Config,"string"),
 
-			 {ok,1} = default(option,opt1,Config,{ok,atom}),
-			 {ok,"string"} = default(option,unknown,Config,{ok,"string"}),
-			 {error,badarg} = default(option,unknown,Config,{error,badarg})
-		 end}
+						 {ok,1} = default(option,opt1,Config,{ok,atom}),
+						 {ok,"string"} = default(option,unknown,Config,{ok,"string"}),
+						 {error,badarg} = default(option,unknown,Config,{error,badarg})
+				 end}
     ].
 
 
 transformations_test_() ->
     [
      {"not null binary", fun() ->
-				 {ok,<<"test">>} = not_null_binary(<<"test">>),
-				 {ok,<<"test">>} = not_null_binary("test"),
-				 {ok,<<"test">>} = not_null_binary(test),
-				 {error,{wrong_format,_}} = not_null_binary(1),
-				 {error,{wrong_format,_}} = not_null_binary({test}),
-				 {error,{wrong_format,_}} = not_null_binary(""),
-				 {error,{wrong_format,_}} = not_null_binary(null),
-				 {error,{wrong_format,_}} = not_null_binary(<<"">>),
-				 {error,{wrong_format,_}} = not_null_binary(<<"">>)
-			 end},
+								 {ok,<<"test">>} = not_null_binary(<<"test">>),
+								 {ok,<<"test">>} = not_null_binary("test"),
+								 {ok,<<"test">>} = not_null_binary(test),
+								 {error,{wrong_format,_}} = not_null_binary(1),
+								 {error,{wrong_format,_}} = not_null_binary({test}),
+								 {error,{wrong_format,_}} = not_null_binary(""),
+								 {error,{wrong_format,_}} = not_null_binary(null),
+								 {error,{wrong_format,_}} = not_null_binary(<<"">>),
+								 {error,{wrong_format,_}} = not_null_binary(<<"">>)
+						 end},
      {"not null atom", fun() ->
-			       {ok,test} = not_null_atom(<<"test">>),
-			       {ok,test} = not_null_atom("test"),
-			       {ok,test} = not_null_atom(test),
-			       {error,{wrong_format,_}} = not_null_atom(1),
-			       {error,{wrong_format,_}} = not_null_atom({test}),
-			       {error,{wrong_format,_}} = not_null_atom(""),
-			       {error,{wrong_format,_}} = not_null_atom(null),
-			       {error,{wrong_format,_}} = not_null_atom(<<"">>),
-			       {error,{wrong_format,_}} = not_null_atom(<<"">>)
-			 end}
-     ].
+							   {ok,test} = not_null_atom(<<"test">>),
+							   {ok,test} = not_null_atom("test"),
+							   {ok,test} = not_null_atom(test),
+							   {error,{wrong_format,_}} = not_null_atom(1),
+							   {error,{wrong_format,_}} = not_null_atom({test}),
+							   {error,{wrong_format,_}} = not_null_atom(""),
+							   {error,{wrong_format,_}} = not_null_atom(null),
+							   {error,{wrong_format,_}} = not_null_atom(<<"">>),
+							   {error,{wrong_format,_}} = not_null_atom(<<"">>)
+					   end}
+	].
 
 defaults_test_() ->
     [
      {"default db types", fun() ->
-				  {ok,integer} = default_db_type(integer),
-				  {ok,integer} = default_db_type(non_neg_integer),
-				  {ok,string} = default_db_type(binary),
-				  {error,{db_type,_}} = default_db_type(unknown)
-			  end}
+								  {ok,integer} = default_db_type(integer),
+								  {ok,integer} = default_db_type(non_neg_integer),
+								  {ok,string} = default_db_type(binary),
+								  {error,{db_type,_}} = default_db_type(unknown)
+						  end}
     ].
 
 utils_test_() ->
     [{"no/1", fun() ->
-		       True = fun(_) -> true end,
-		       true = True(1),
-		       False = no(True),
-		       false = False(1)
-	       end},
+					  True = fun(_) -> true end,
+					  true = True(1),
+					  False = no(True),
+					  false = False(1)
+			  end},
      {"validators",fun() ->
-			   ok = validators(test,[],[fun is_list/1]),
-			   {error,_} = validators(test,<<"">>,[fun is_list/1]),
-			   ok = validators(test,[],[fun is_list/1,fun is_empty/1]),
-			   {error,_} = validators(test,[],[fun is_list/1,no(fun is_empty/1)])
-		   end},
+						   ok = validators(test,[],[fun is_list/1]),
+						   {error,_} = validators(test,<<"">>,[fun is_list/1]),
+						   ok = validators(test,[],[fun is_list/1,fun is_empty/1]),
+						   {error,_} = validators(test,[],[fun is_list/1,no(fun is_empty/1)])
+				   end},
      {"or validators",fun() ->
-			      ok = or_validators(test,123,[wrong,123]),
-			      ok = or_validators(test,123,[123,wrong]),
-			      ok = or_validators(test,123,[wrong,fun is_integer/1]),
-			      {error,_} = or_validators(test,[],[wrong,fun is_integer/1]),
-			      {error,_} = or_validators(test,123,[])
-		      end}	      
+							  ok = or_validators(test,123,[wrong,123]),
+							  ok = or_validators(test,123,[123,wrong]),
+							  ok = or_validators(test,123,[wrong,fun is_integer/1]),
+							  {error,_} = or_validators(test,[],[wrong,fun is_integer/1]),
+							  {error,_} = or_validators(test,123,[])
+					  end}	      
     ].
 
 
 configs_test_() ->
     Filename = "test.erl",
     Test = fun(Config) ->
-		     normalize_({Filename,test_model,Config})
-	   end,
+				   normalize_({Filename,test_model,Config})
+		   end,
     [{"empty config",fun() ->
-			     {error,_} = Test([]),
-			     {error,_} = Test([{options,[]}]),
-			     {error,_} = Test([
-							      {fields,[]},
-							      {options,[]}
-							     ]),
-			     {error,_} = Test([
-					       {fields,[]},
-					       {options,[
-							 {table,""}
-							]}
-					      ]),
-			     {error,_} = Test([
-					       {fields,[]},
-					       {options,[
-							 {table,"test"}
-							]}
-					      ]),
-			     {error,_} = Test([
-					       {fields,[{}]},
-					       {options,[
-							 {table,"test"}
-							]}
-					      ]),
-			     {error,_} = Test([
-					       {fields,[{"Test",unknown,[]}]},
-					       {options,[
-							 {table,"test"}
-							]}
-					      ]),
-			     {error,_} = Test([
-					       {fields,[{"Test",binary,test}]},
-					       {options,[
-							 {table,"test"}
-							]}
-					      ])
-     end},
+							 {error,_} = Test([]),
+							 {error,_} = Test([{options,[]}]),
+							 {error,_} = Test([
+											   {fields,[]},
+											   {options,[]}
+											  ]),
+							 {error,_} = Test([
+											   {fields,[]},
+											   {options,[
+														 {table,""}
+														]}
+											  ]),
+							 {error,_} = Test([
+											   {fields,[]},
+											   {options,[
+														 {table,"test"}
+														]}
+											  ]),
+							 {error,_} = Test([
+											   {fields,[{}]},
+											   {options,[
+														 {table,"test"}
+														]}
+											  ]),
+							 {error,_} = Test([
+											   {fields,[{"Test",unknown,[]}]},
+											   {options,[
+														 {table,"test"}
+														]}
+											  ]),
+							 {error,_} = Test([
+											   {fields,[{"Test",binary,test}]},
+											   {options,[
+														 {table,"test"}
+														]}
+											  ])
+					 end},
      {"Check defaults",fun() ->
-			       {ok,Config} = Test([
-						   {fields,[{"Test",binary,[]}]},
-						   {options,[
-							     {table,"test"}
-							    ]}
-						  ]),
-			       #config{options=Option,
-				      fields=[Field],
-				      filename=Filename,
-				      links=[]} = Config,
-			       false = Option#options.safe_delete,
-			       false = Option#options.dtw,
+							   {ok,Config} = Test([
+												   {fields,[{"Test",binary,[]}]},
+												   {options,[
+															 {table,"test"}
+															]}
+												  ]),
+							   #config{options=Option,
+									   fields=[Field],
+									   filename=Filename,
+									   links=[]} = Config,
+							   false = Option#options.safe_delete,
+							   false = Option#options.dtw,
 
-			       <<"Test">> = Field#field.name,
-			       false = Field#field.is_required,
-			       false = Field#field.is_index,
-			       true = Field#field.has_record,
-			       true = Field#field.is_in_database,
+							   <<"Test">> = Field#field.name,
+							   false = Field#field.is_required,
+							   false = Field#field.is_index,
+							   true = Field#field.has_record,
+							   true = Field#field.is_in_database,
 
-			       #field{record_options=RecOpts,db_options=DBOpts} = Field,
-			       binary = RecOpts#record_options.type,
-			       undefined = RecOpts#record_options.description,
-			       undefined = RecOpts#record_options.default_value,
-			       rw = RecOpts#record_options.mode,
-			       true = RecOpts#record_options.getter,
-			       true = RecOpts#record_options.setter,
-			       undefined = RecOpts#record_options.init,
+							   #field{record_options=RecOpts,db_options=DBOpts} = Field,
+							   binary = RecOpts#record_options.type,
+							   undefined = RecOpts#record_options.description,
+							   undefined = RecOpts#record_options.default_value,
+							   rw = RecOpts#record_options.mode,
+							   true = RecOpts#record_options.getter,
+							   true = RecOpts#record_options.setter,
+							   undefined = RecOpts#record_options.init,
 
-			       string = DBOpts#db_options.type,
-			       <<"Test">> = DBOpts#db_options.alias
-		       end
+							   string = DBOpts#db_options.type,
+							   <<"Test">> = DBOpts#db_options.alias
+					   end
      }].
 
 get_set_wrong_test_() ->
     [
      {"table name",fun() ->
-			   Getter = fun(Config) ->
-					    Config#config.options#options.table
-				    end,
-			   Setter = fun(Table) ->
-					    [
-					     {fields,[{"Test",binary,[]}]},
-					     {options,[
-						       {table,Table}
-						      ]}
-					    ]
-				    end,
-			   Test = [
-				   {{ok,<<"Table">>},"Table"},
-				   {{ok,<<"Table">>},'Table'},
-				   {error,123},
-				   {error,<<"">>},
-				   {error,[]}
-				  ],
-			   test(Getter,Setter,Test)
-		   end},
+						   Getter = fun(Config) ->
+											Config#config.options#options.table
+									end,
+						   Setter = fun(Table) ->
+											[
+											 {fields,[{"Test",binary,[]}]},
+											 {options,[
+													   {table,Table}
+													  ]}
+											]
+									end,
+						   Test = [
+								   {{ok,<<"Table">>},"Table"},
+								   {{ok,<<"Table">>},'Table'},
+								   {error,123},
+								   {error,<<"">>},
+								   {error,[]}
+								  ],
+						   test(Getter,Setter,Test)
+				   end},
      {"safe delete",fun() ->
-			    Getter = fun(Config) ->
-					     Flag = Config#config.options#options.safe_delete,
-					     Name = Config#config.options#options.deleted_flag_name,
-					     {Flag,Name}
-				     end,
-			    Setter = fun(SafeDelete) ->
-						 [
-						  {fields,[{"Test",binary,[]}]},
-						  {options,[
-							    {table,"test"},
-							    {safe_delete, SafeDelete}
-							   ]}
-						 ]
-					 end,
-			    Test = [
-				    {{ok,{true,<<"deleted">>}},true},
-				    {{ok,{true,<<"delete_flag">>}},"delete_flag"},
-				    {{ok,{false,undefined}},false},
-				    {error,123}
-				   ],
-			    test(Getter,Setter,Test)
-		    end},
+							Getter = fun(Config) ->
+											 Flag = Config#config.options#options.safe_delete,
+											 Name = Config#config.options#options.deleted_flag_name,
+											 {Flag,Name}
+									 end,
+							Setter = fun(SafeDelete) ->
+											 [
+											  {fields,[{"Test",binary,[]}]},
+											  {options,[
+														{table,"test"},
+														{safe_delete, SafeDelete}
+													   ]}
+											 ]
+									 end,
+							Test = [
+									{{ok,{true,<<"deleted">>}},true},
+									{{ok,{true,<<"delete_flag">>}},"delete_flag"},
+									{{ok,{false,undefined}},false},
+									{error,123}
+								   ],
+							test(Getter,Setter,Test)
+					end},
      {"dtw",fun() ->
-		    Getter = fun(Config) ->
-				     Config#config.options#options.dtw
-			     end,
-		    Setter = fun(Dtw) ->
-				     [
-				      {fields,[{"Test",binary,[]}]},
-				      {options,[
-						{table,"test"},
-						{dtw, Dtw}
-					       ]}
-				     ]
-				 end,
-		    Test = [
-			    {{ok,true},true},
-			    {{ok,false},false},
-			    {error,123}
-			    ],
-		    test(Getter,Setter,Test)
-	    end},
+					Getter = fun(Config) ->
+									 Config#config.options#options.dtw
+							 end,
+					Setter = fun(Dtw) ->
+									 [
+									  {fields,[{"Test",binary,[]}]},
+									  {options,[
+												{table,"test"},
+												{dtw, Dtw}
+											   ]}
+									 ]
+							 end,
+					Test = [
+							{{ok,true},true},
+							{{ok,false},false},
+							{error,123}
+						   ],
+					test(Getter,Setter,Test)
+			end},
      {"field name",fun() ->
-			   Getter = fun(Config) ->
-					    [F|_] = Config#config.fields,
-					    F#field.name
-				    end,
-			   Setter = fun(Fieldname) ->
-					    [
-					     {fields,[{Fieldname,binary,[]}]},
-					     {options,[{table,"Tablename"}]}
-					    ]
-				    end,
-			   Test = [
-				 {{ok,<<"Field">>}, "Field"},
-				 {{ok,<<"Field">>}, 'Field' },
-				 {error,123},
-				 {error,<<"">>},
-				 {error,[]}
-				],
-			   test(Getter,Setter,Test)
-		   end},
+						   Getter = fun(Config) ->
+											[F|_] = Config#config.fields,
+											F#field.name
+									end,
+						   Setter = fun(Fieldname) ->
+											[
+											 {fields,[{Fieldname,binary,[]}]},
+											 {options,[{table,"Tablename"}]}
+											]
+									end,
+						   Test = [
+								   {{ok,<<"Field">>}, "Field"},
+								   {{ok,<<"Field">>}, 'Field' },
+								   {error,123},
+								   {error,<<"">>},
+								   {error,[]}
+								  ],
+						   test(Getter,Setter,Test)
+				   end},
      {"field type",fun() ->
-			   Getter = fun(Config) ->
-					    [F|_] = Config#config.fields,
-					    RecOpts = F#field.record_options,
-					    RecOpts#record_options.type
-				    end,
-			   Setter = fun(FieldType) ->
-					    [
-					     {fields,[{field,FieldType,[{db_type,string}]}]},
-					     {options,[{table,"Tablename"}]}
-					    ]
-				    end,
-			   Test = [
-				   {{ok,binary}, binary},
-				   {{ok,integer}, "integer"},
-				   {{ok,{module,type}},{<<"module">>,type}},
-				   {error,123},
-				   {error,<<"">>},
-				   {error,[]}
-				],
-			   test(Getter,Setter,Test)
-     		   end},
+						   Getter = fun(Config) ->
+											[F|_] = Config#config.fields,
+											RecOpts = F#field.record_options,
+											RecOpts#record_options.type
+									end,
+						   Setter = fun(FieldType) ->
+											[
+											 {fields,[{field,FieldType,[{db_type,string}]}]},
+											 {options,[{table,"Tablename"}]}
+											]
+									end,
+						   Test = [
+								   {{ok,binary}, binary},
+								   {{ok,integer}, "integer"},
+								   {{ok,{module,type}},{<<"module">>,type}},
+								   {error,123},
+								   {error,<<"">>},
+								   {error,[]}
+								  ],
+						   test(Getter,Setter,Test)
+				   end},
      {"field required", fun() ->
-				Getter = fun(Config) ->
-						 [F|_] = Config#config.fields,
-						 F#field.is_required
-					 end,
-				Setter = fun(Required) ->
-						 [
-						  {fields,[{field,binary,
-							    case Required of
-								true -> [required];
-								false -> [];
-								Else -> [{required,Else}]
-							    end
-							   }]},
-						  {options,[{table,"Tablename"}]}
-						 ]
-					 end,
-				Test = [
-					{{ok,true},true},
-					{{ok,false},false},
-					{error,123}
-				       ],
-				test(Getter,Setter,Test)
-			end},
+								Getter = fun(Config) ->
+												 [F|_] = Config#config.fields,
+												 F#field.is_required
+										 end,
+								Setter = fun(Required) ->
+												 [
+												  {fields,[{field,binary,
+															case Required of
+																true -> [required];
+																false -> [];
+																Else -> [{required,Else}]
+															end
+														   }]},
+												  {options,[{table,"Tablename"}]}
+												 ]
+										 end,
+								Test = [
+										{{ok,true},true},
+										{{ok,false},false},
+										{error,123}
+									   ],
+								test(Getter,Setter,Test)
+						end},
      {"field index", fun() ->
-				Getter = fun(Config) ->
-						 [F|_] = Config#config.fields,
-						 F#field.is_index
-					 end,
-				Setter = fun(Required) ->
-						 [
-						  {fields,[{field,binary,
-							    case Required of
-								true -> [index];
-								false -> [];
-								Else -> [{index,Else}]
-							    end
-							   }]},
-						  {options,[{table,"Tablename"}]}
-						 ]
-					 end,
-				Test = [
-					{{ok,true},true},
-					{{ok,false},false},
-					{error,123}
-				       ],
-				test(Getter,Setter,Test)
-			end},
+							 Getter = fun(Config) ->
+											  [F|_] = Config#config.fields,
+											  F#field.is_index
+									  end,
+							 Setter = fun(Required) ->
+											  [
+											   {fields,[{field,binary,
+														 case Required of
+															 true -> [index];
+															 false -> [];
+															 Else -> [{index,Else}]
+														 end
+														}]},
+											   {options,[{table,"Tablename"}]}
+											  ]
+									  end,
+							 Test = [
+									 {{ok,true},true},
+									 {{ok,false},false},
+									 {error,123}
+									],
+							 test(Getter,Setter,Test)
+					 end},
      {"field description",fun() ->
-				  Getter = fun(Config) ->
-						   [F|_] = Config#config.fields,
-						   RecOpts = F#field.record_options,
-						   RecOpts#record_options.description
-					   end,
-				  Setter = fun(Descritption) ->
-						   [
-						    {fields,[{field,binary,[
-									    {description,Descritption}
-									   ]}]},
-						    {options,[{table,"Tablename"}]}
-						   ]
-					   end,
-				  Test = [
-					  {{ok,binary}, binary},
-					  {{ok,"integer"}, "integer"},
-					  {{ok,123},123},
-					  {{ok,<<"">>},<<"">>},
-					  {{ok,[]},[]}
-					 ],
-				  test(Getter,Setter,Test)
-			  end},
+								  Getter = fun(Config) ->
+												   [F|_] = Config#config.fields,
+												   RecOpts = F#field.record_options,
+												   RecOpts#record_options.description
+										   end,
+								  Setter = fun(Descritption) ->
+												   [
+													{fields,[{field,binary,[
+																			{description,Descritption}
+																		   ]}]},
+													{options,[{table,"Tablename"}]}
+												   ]
+										   end,
+								  Test = [
+										  {{ok,binary}, binary},
+										  {{ok,"integer"}, "integer"},
+										  {{ok,123},123},
+										  {{ok,<<"">>},<<"">>},
+										  {{ok,[]},[]}
+										 ],
+								  test(Getter,Setter,Test)
+						  end},
      {"field default value",fun() ->
-				   Getter = fun(Config) ->
-						    [F|_] = Config#config.fields,
-						    RecOpts = F#field.record_options,
-						    RecOpts#record_options.default_value
-					    end,
-				   Setter = fun(Default) ->
-						    [
-						     {fields,[{field,binary,[
-									     {default,Default}
-									    ]}]},
-						     {options,[{table,"Tablename"}]}
-						    ]
-					    end,
-				   Test = [
-					   {{ok,binary}, binary},
-					   {{ok,"integer"}, "integer"},
-					   {{ok,123},123},
-					   {{ok,<<"">>},<<"">>},
-					   {{ok,[]},[]}
-					  ],
-				   test(Getter,Setter,Test)
-			   end},
+									Getter = fun(Config) ->
+													 [F|_] = Config#config.fields,
+													 RecOpts = F#field.record_options,
+													 RecOpts#record_options.default_value
+											 end,
+									Setter = fun(Default) ->
+													 [
+													  {fields,[{field,binary,[
+																			  {default,Default}
+																			 ]}]},
+													  {options,[{table,"Tablename"}]}
+													 ]
+											 end,
+									Test = [
+											{{ok,binary}, binary},
+											{{ok,"integer"}, "integer"},
+											{{ok,123},123},
+											{{ok,<<"">>},<<"">>},
+											{{ok,[]},[]}
+										   ],
+									test(Getter,Setter,Test)
+							end},
      {"field mode",fun() ->
-			   Getter = fun(Config) ->
-					    [F|_] = Config#config.fields,
-					    RecOpts = F#field.record_options,
-					    RecOpts#record_options.mode
-				    end,
-			   Setter = fun(Mode) ->
-					    [
-					     {fields,[{field,binary,[
-								     {mode,Mode}
-								    ]}]},
-					     {options,[{table,"Tablename"}]}
-					    ]
-				    end,
-			   Test = [
-				   {{ok,rsw}, rsw},
-				   {{ok,srsw}, srsw},
-				   {{ok,r},r},
-				   {error,wr},
-				   {error,test},
-				   {error,123},
-				   {error,[r,w]}
-				  ],
-			   test(Getter,Setter,Test)
-		   end},
+						   Getter = fun(Config) ->
+											[F|_] = Config#config.fields,
+											RecOpts = F#field.record_options,
+											RecOpts#record_options.mode
+									end,
+						   Setter = fun(Mode) ->
+											[
+											 {fields,[{field,binary,[
+																	 {mode,Mode}
+																	]}]},
+											 {options,[{table,"Tablename"}]}
+											]
+									end,
+						   Test = [
+								   {{ok,rsw}, rsw},
+								   {{ok,srsw}, srsw},
+								   {{ok,r},r},
+								   {error,wr},
+								   {error,test},
+								   {error,123},
+								   {error,[r,w]}
+								  ],
+						   test(Getter,Setter,Test)
+				   end},
      {"field getter",fun() ->
-			   Getter = fun(Config) ->
-					    [F|_] = Config#config.fields,
-					    RecOpts = F#field.record_options,
-					    RecOpts#record_options.getter
-				    end,
-			   Setter = fun(Get) ->
-					    [
-					     {fields,[{field,binary,[
-								     {custom, case Get of
-										  true -> [get];
-										  false -> [];
-										  Else -> [{get,Else}]
-									      end}
-								    ]}
-						     ]},
-					     {options,[{table,"Tablename"}]}
-					    ]
-				    end,
-			   Test = [
-				   {{ok,true}, true},
-				   {{ok,false}, false},
-				   {{ok,custom},custom},
-				   {error,123},
-				   {error,test},
-				   {error,[r,w]}
-				  ],
-			   test(Getter,Setter,Test)
-		   end},
+							 Getter = fun(Config) ->
+											  [F|_] = Config#config.fields,
+											  RecOpts = F#field.record_options,
+											  RecOpts#record_options.getter
+									  end,
+							 Setter = fun(Get) ->
+											  [
+											   {fields,[{field,binary,[
+																	   {custom, case Get of
+																					true -> [get];
+																					false -> [];
+																					Else -> [{get,Else}]
+																				end}
+																	  ]}
+													   ]},
+											   {options,[{table,"Tablename"}]}
+											  ]
+									  end,
+							 Test = [
+									 {{ok,true}, true},
+									 {{ok,false}, false},
+									 {{ok,custom},custom},
+									 {error,123},
+									 {error,test},
+									 {error,[r,w]}
+									],
+							 test(Getter,Setter,Test)
+					 end},
      {"field setter",fun() ->
-			   Getter = fun(Config) ->
-					    [F|_] = Config#config.fields,
-					    RecOpts = F#field.record_options,
-					    RecOpts#record_options.setter
-				    end,
-			   Setter = fun(Set) ->
-					    [
-					     {fields,[{field,binary,[
-								     {custom, case Set of
-										  true -> [set];
-										  false -> [];
-										  Else -> [{set,Else}]
-									      end}
-								    ]}
-						     ]},
-					     {options,[{table,"Tablename"}]}
-					    ]
-				    end,
-			   Test = [
-				   {{ok,true}, true},
-				   {{ok,false}, false},
-				   {{ok,custom},custom},
-				   {error,123},
-				   {error,test},
-				   {error,[r,w]}
-				  ],
-			   test(Getter,Setter,Test)
-		   end},
+							 Getter = fun(Config) ->
+											  [F|_] = Config#config.fields,
+											  RecOpts = F#field.record_options,
+											  RecOpts#record_options.setter
+									  end,
+							 Setter = fun(Set) ->
+											  [
+											   {fields,[{field,binary,[
+																	   {custom, case Set of
+																					true -> [set];
+																					false -> [];
+																					Else -> [{set,Else}]
+																				end}
+																	  ]}
+													   ]},
+											   {options,[{table,"Tablename"}]}
+											  ]
+									  end,
+							 Test = [
+									 {{ok,true}, true},
+									 {{ok,false}, false},
+									 {{ok,custom},custom},
+									 {error,123},
+									 {error,test},
+									 {error,[r,w]}
+									],
+							 test(Getter,Setter,Test)
+					 end},
      {"field init",fun() ->
-			     Getter = fun(Config) ->
-					      [F|_] = Config#config.fields,
-					      RecOpts = F#field.record_options,
-					      RecOpts#record_options.init
-				      end,
-			     Setter = fun(Init) ->
-					      [
-					       {fields,[{field,binary,[
-								       {custom, case Init of
-										    false -> [];
-										    Else -> [{init,Else}]
-										end}
-								      ]}
-						       ]},
-					       {options,[{table,"Tablename"}]}
-					      ]
-				      end,
-			     Test = [
-				     {{ok,[]}, []},
-				     {{ok,undefined}, false},
-				     {{ok,[test,test2]},[test,test2]},
-				     {error,123},
-				     {error,test}
-				    ],
-			     test(Getter,Setter,Test)
-		     end},
+						   Getter = fun(Config) ->
+											[F|_] = Config#config.fields,
+											RecOpts = F#field.record_options,
+											RecOpts#record_options.init
+									end,
+						   Setter = fun(Init) ->
+											[
+											 {fields,[{field,binary,[
+																	 {custom, case Init of
+																				  false -> [];
+																				  Else -> [{init,Else}]
+																			  end}
+																	]}
+													 ]},
+											 {options,[{table,"Tablename"}]}
+											]
+									end,
+						   Test = [
+								   {{ok,[]}, []},
+								   {{ok,undefined}, false},
+								   {{ok,[test,test2]},[test,test2]},
+								   {error,123},
+								   {error,test}
+								  ],
+						   test(Getter,Setter,Test)
+				   end},
      {"field has_record", fun() ->
-				  Getter = fun(Config) ->
-						   [F|_] = Config#config.fields,
-						   F#field.has_record
-					   end,
-				  Setter = fun(HasRecord) ->
-						   [
-						    {fields,[{field,binary,[
-									    {custom, case HasRecord of
-											 false -> [];
-											 true -> [record]
-										     end}
-									   ]}
-							    ]},
-						    {options,[{table,"Tablename"}]}
-						   ]
-					   end,
-				  Test = [
-					  {{ok,true},true},
-					  {{ok,false},false}
-					 ],
-				  test(Getter,Setter,Test),
-				  
-				  Setter2 = fun(HasRecord) ->
-						   [
-						    {fields,[{field,binary,case HasRecord of
-									       true -> [];
-									       false -> [custom]
-									   end}]},
-						    {options,[{table,"Tablename"}]}
-						   ]
-					   end,
-				  test(Getter,Setter2,Test)
-			  end},
+								  Getter = fun(Config) ->
+												   [F|_] = Config#config.fields,
+												   F#field.has_record
+										   end,
+								  Setter = fun(HasRecord) ->
+												   [
+													{fields,[{field,binary,[
+																			{custom, case HasRecord of
+																						 false -> [];
+																						 true -> [record]
+																					 end}
+																		   ]}
+															]},
+													{options,[{table,"Tablename"}]}
+												   ]
+										   end,
+								  Test = [
+										  {{ok,true},true},
+										  {{ok,false},false}
+										 ],
+								  test(Getter,Setter,Test),
+
+								  Setter2 = fun(HasRecord) ->
+													[
+													 {fields,[{field,binary,case HasRecord of
+																				true -> [];
+																				false -> [custom]
+																			end}]},
+													 {options,[{table,"Tablename"}]}
+													]
+											end,
+								  test(Getter,Setter2,Test)
+						  end},
      {"field stores in DB", fun() ->
-				    Getter = fun(Config) ->
-						     [F|_] = Config#config.fields,
-						     F#field.has_record
-					     end,
-				    Setter = fun(Custom) ->
-						     [
-						      {fields,[{field,binary,case Custom of
-										 true -> [custom];
-										 false -> []
-									     end}]},
-						      {options,[{table,"Tablename"}]}
-						     ]
-					     end,
-				    Test = [
-					    {{ok,false},true},
-					    {{ok,true},false}
-					   ],
-				    test(Getter,Setter,Test)
-			    end},
+									Getter = fun(Config) ->
+													 [F|_] = Config#config.fields,
+													 F#field.has_record
+											 end,
+									Setter = fun(Custom) ->
+													 [
+													  {fields,[{field,binary,case Custom of
+																				 true -> [custom];
+																				 false -> []
+																			 end}]},
+													  {options,[{table,"Tablename"}]}
+													 ]
+											 end,
+									Test = [
+											{{ok,false},true},
+											{{ok,true},false}
+										   ],
+									test(Getter,Setter,Test)
+							end},
      {"field db_type", fun() ->
-			       Getter = fun(Config) ->
-						[F|_] = Config#config.fields,
-						DBOpts = F#field.db_options,
-						DBOpts#db_options.type
-					end,
-			       Setter = fun(Type) ->
-						[
-						 {fields,[{field,binary,case Type of
-									    undefined_ -> [];
-									    Type -> [{db_type,Type}] 
-									end}]},
-						 {options,[{table,"Tablename"}]}
-						]
-					end,
-			       Test = [
-				       {{ok,string},string},
-				       {{ok,string},undefined_},
-				       {error,undefined},
-				       {error,test},
-				       {error,123}
-				      ],
-			       test(Getter,Setter,Test)
-		       end},
+							   Getter = fun(Config) ->
+												[F|_] = Config#config.fields,
+												DBOpts = F#field.db_options,
+												DBOpts#db_options.type
+										end,
+							   Setter = fun(Type) ->
+												[
+												 {fields,[{field,binary,case Type of
+																			undefined_ -> [];
+																			Type -> [{db_type,Type}] 
+																		end}]},
+												 {options,[{table,"Tablename"}]}
+												]
+										end,
+							   Test = [
+									   {{ok,string},string},
+									   {{ok,string},undefined_},
+									   {error,undefined},
+									   {error,test},
+									   {error,123}
+									  ],
+							   test(Getter,Setter,Test)
+					   end},
      {"field aliace", fun() ->
-			       Getter = fun(Config) ->
-						[F|_] = Config#config.fields,
-						DBOpts = F#field.db_options,
-						DBOpts#db_options.alias
-					end,
-			       Setter = fun(Alias) ->
-						[
-						 {fields,[{field,binary,case Alias of
-									    undefined_ -> [];
-									    Type -> [{db_alias,Type}]
-									end}]},
-						 {options,[{table,"Tablename"}]}
-						]
-					end,
-			       Test = [
-				       {{ok,<<"test">>},<<"test">>},
-				       {{ok,<<"field">>},undefined_},
-				       {error,undefined},
-				       {error,123}
-				      ],
-			       test(Getter,Setter,Test)
-		       end},
+							  Getter = fun(Config) ->
+											   [F|_] = Config#config.fields,
+											   DBOpts = F#field.db_options,
+											   DBOpts#db_options.alias
+									   end,
+							  Setter = fun(Alias) ->
+											   [
+												{fields,[{field,binary,case Alias of
+																		   undefined_ -> [];
+																		   Type -> [{db_alias,Type}]
+																	   end}]},
+												{options,[{table,"Tablename"}]}
+											   ]
+									   end,
+							  Test = [
+									  {{ok,<<"test">>},<<"test">>},
+									  {{ok,<<"field">>},undefined_},
+									  {error,undefined},
+									  {error,123}
+									 ],
+							  test(Getter,Setter,Test)
+					  end},
      {"field link" ,fun() ->
-			    Getter = fun(Config) ->
-					     [F|_] = Config#config.fields,
-					     DBOpts = F#field.db_options,
-					     IsLink = DBOpts#db_options.is_link,
-					     {Model,Link} = case IsLink of
-								true ->
-								    DBOpts#db_options.link;
-								false ->
-								    {undefined,undefined}
-							    end,
-					     {IsLink,Model,Link}
-				     end,
-			    Setter = fun(Link) ->
-					     [
-					      {fields,[{field,binary,case Link of
-									 undefined_ -> [];
-									 Type -> [{link,Type}]
-								     end}]},
-					      {options,[{table,"Tablename"}]}
-					     ]
-				     end,
-			    Test = [
-				    {{ok,{true,<<"model">>,<<"field">>}},{model,field}},
-				    {{ok,{false,undefined,undefined}},undefined},
-				    {error,test},
-				    {error,{<<"test">>,123}},
-				    {error,{test,test,test}}
-				   ],
-			    test(Getter,Setter,Test)
-		    end}
+							Getter = fun(Config) ->
+											 [F|_] = Config#config.fields,
+											 DBOpts = F#field.db_options,
+											 IsLink = DBOpts#db_options.is_link,
+											 {Model,Link} = case IsLink of
+																true ->
+																	DBOpts#db_options.link;
+																false ->
+																	{undefined,undefined}
+															end,
+											 {IsLink,Model,Link}
+									 end,
+							Setter = fun(Link) ->
+											 [
+											  {fields,[{field,binary,case Link of
+																		 undefined_ -> [];
+																		 Type -> [{link,Type}]
+																	 end}]},
+											  {options,[{table,"Tablename"}]}
+											 ]
+									 end,
+							Test = [
+									{{ok,{true,<<"model">>,<<"field">>}},{model,field}},
+									{{ok,{false,undefined,undefined}},undefined},
+									{error,test},
+									{error,{<<"test">>,123}},
+									{error,{test,test,test}}
+								   ],
+							test(Getter,Setter,Test)
+					end}
 
     ].
 
@@ -639,14 +639,14 @@ test(Getter,Setter,[{Result,InitValue}|Rest]) ->
     Filename = "test.erl",
     Res = normalize_({Filename,test_model,Setter(InitValue)}),
     case Result of
-	error ->
-	    {error,_} = Res,
-	    test(Getter,Setter,Rest);
-	{ok,Val} ->
-	    {ok,Res2} = Res,
-	    Val = Getter(Res2),
-	    test(Getter,Setter,Rest)
+		error ->
+			{error,_} = Res,
+			test(Getter,Setter,Rest);
+		{ok,Val} ->
+			{ok,Res2} = Res,
+			Val = Getter(Res2),
+			test(Getter,Setter,Rest)
     end.
-	
+
 
 -endif.
